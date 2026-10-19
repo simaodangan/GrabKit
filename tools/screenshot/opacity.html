@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'none'"
+    />
+    <title>透明度</title>
+    <link rel="stylesheet" href="./opacity.css" />
+  </head>
+  <body>
+    <header>
+      <label for="opacity">透明度 <output id="value">100%</output></label
+      ><button id="close" aria-label="关闭面板">×</button>
+    </header>
+    <input id="opacity" type="range" min="10" max="100" step="1" value="100" aria-label="透明度" />
+    <script src="./opacity.js"></script>
+  </body>
+</html>

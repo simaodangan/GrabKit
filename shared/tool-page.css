@@ -1,0 +1,60 @@
+@import url('../app/style.css');
+body {
+  display: block;
+  padding: 28px 36px;
+}
+h1 {
+  font-size: 26px;
+}
+header {
+  height: auto;
+  padding-bottom: 18px;
+  gap: 20px;
+}
+header p {
+  font-size: 12px;
+  color: #949bad;
+}
+#content {
+  margin-top: 24px;
+}
+.toolbar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.toolbar button {
+  background: white;
+  border: 1px solid #e0deeb;
+  padding: 8px 12px;
+  border-radius: 6px;
+  color: #74658e;
+}
+.screen-preview {
+  display: block;
+  max-width: 100%;
+  margin-top: 15px;
+  border: 1px solid #e0e2eb;
+  border-radius: 8px;
+}
+.hint {
+  font-size: 12px;
+  color: #969cad;
+  line-height: 1.8;
+}
+.preview {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.8;
+  min-height: 300px;
+}
+.preview h1,
+.preview h2,
+.preview h3 {
+  margin: 12px 0;
+}
+.preview code {
+  background: #f1eef8;
+  padding: 2px 5px;
+  border-radius: 3px;
+}

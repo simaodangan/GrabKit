@@ -1,0 +1,10 @@
+{
+  "id": "screenshot",
+  "name": "屏幕截图",
+  "category": "桌面效率",
+  "description": "区域框选或窗口截图，无标题贴图，支持置顶、透明度、边框及保存。",
+  "icon": "▣",
+  "color": "blue",
+  "keywords": "截图 屏幕 贴图 Snipaste 窗口 透明度",
+  "entry": "index.html"
+}

@@ -1,0 +1,10 @@
+{
+  "id": "formula-converter",
+  "name": "GPT 论文公式转 Word",
+  "category": "文本处理",
+  "description": "将 GPT 正文和 LaTeX 公式转换为 MathML，复制后粘贴到 Word。",
+  "icon": "∑",
+  "color": "orange",
+  "keywords": "公式 latex mathml word gpt 论文 markdown",
+  "entry": "index.html"
+}

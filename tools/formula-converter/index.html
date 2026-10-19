@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; connect-src 'none'"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>GPT 论文公式 → Word</title>
+    <link rel="stylesheet" href="./style.css" />
+    <script src="./mathjax-config.js"></script>
+    <script defer src="../../node_modules/mathjax/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <main class="wrap">
+      <div class="topbar">
+        <h1>GPT 论文公式 → Word</h1>
+        <div class="buttons"><button id="copyTop" disabled>复制到 Word</button></div>
+      </div>
+      <p class="sub">粘贴 ChatGPT 文本或 Markdown 后自动转换为 MathML，整段复制到 Word 2019。</p>
+      <div class="cols">
+        <section class="pane">
+          <div class="head">
+            ① 粘贴原文
+            <div class="buttons">
+              <button class="secondary" id="example">载入示例</button
+              ><button id="convert">立即刷新</button>
+            </div>
+          </div>
+          <div class="body">
+            <textarea
+              id="source"
+              spellcheck="false"
+              placeholder="粘贴 GPT 输出的内容。公式支持 $...$、$$...$$、\(...\)、\[...\]。"
+            ></textarea>
+          </div>
+        </section>
+        <section class="pane">
+          <div class="head">
+            ② Word 兼容预览
+            <div class="buttons">
+              <span id="status" class="status">等待输入</span
+              ><button id="copy" disabled>复制到 Word</button>
+            </div>
+          </div>
+          <div class="body">
+            <div id="preview" class="paper" tabindex="0">
+              <p style="color: #98a2b3">转换后会在这里显示正文和数学公式。</p>
+            </div>
+          </div>
+        </section>
+      </div>
+      <div class="help">
+        <b>使用：</b>将 GPT 正文粘贴左侧 → 自动转换预览 → 点击「复制到 Word」→ 在 Word 中按
+        Ctrl+V。输入或修改文字也会自动更新；「立即刷新」仅作为备用。若按钮粘贴结果不是公式，可直接用鼠标选择右侧预览区域的内容，再按
+        Ctrl+C、到 Word 按 Ctrl+V（与你此前测试成功的 HTML 页面相同）。<br /><b>支持：</b>行内公式
+        <code>$Q_d(t)$</code>、块公式
+        <code>$$Q_d=A_dv$$</code>、<code>\(...\)</code>、<code>\[...\]</code>；Markdown
+        标题、段落、粗体、斜体和基础列表。MathJax 已随工具箱本地安装；转换离线完成，不上传论文内容。
+      </div>
+    </main>
+    <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+    <script src="./script.js"></script>
+  </body>
+</html>

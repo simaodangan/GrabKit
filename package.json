@@ -1,0 +1,24 @@
+{
+  "name": "electrontoolbox",
+  "version": "0.1.0",
+  "description": "可扩展的桌面小工具箱",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "check": "node scripts/check.cjs"
+  },
+  "keywords": [],
+  "type": "commonjs",
+  "build": {
+    "win": {
+      "icon": "shared/app-icon.ico"
+    },
+    "beforePack": "./scripts/stamp-build.cjs"
+  },
+  "devDependencies": {
+    "electron": "^44.9.0"
+  },
+  "dependencies": {
+    "mathjax": "3.2.2"
+  }
+}

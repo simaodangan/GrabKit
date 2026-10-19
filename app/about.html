@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'none'"
+    />
+    <title>关于拾用</title>
+    <link rel="stylesheet" href="./about.css" />
+  </head>
+  <body>
+    <main>
+      <img src="../shared/app-icon.png" width="72" height="72" alt="拾用软件图标" />
+      <div>
+        <h1>拾用</h1>
+        <p class="subtitle">桌面工具箱</p>
+        <dl>
+          <dt>编辑者</dt>
+          <dd id="editor">AI</dd>
+          <dt>版本号</dt>
+          <dd id="version">0.1</dd>
+          <dt>编译日期</dt>
+          <dd id="build-date">正在读取…</dd>
+        </dl>
+        <p id="status" role="status"></p>
+      </div>
+    </main>
+    <script src="./about.js"></script>
+  </body>
+</html>

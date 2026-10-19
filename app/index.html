@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'"
+    />
+    <title>拾用 · 桌面工具箱</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <img class="brand-icon" src="../shared/app-icon.png" alt="拾用软件图标" />
+        <div><strong>拾用</strong><small>你的桌面工具箱</small></div>
+      </div>
+      <div class="nav-label">工作空间</div>
+      <nav aria-label="主导航">
+        <button class="nav-item active" data-view="all"><span>▦</span>全部工具</button>
+        <button class="nav-item" data-view="favorites"><span>☆</span>我的收藏</button>
+        <button class="nav-item" data-view="recent"><span>◷</span>最近使用</button>
+      </nav>
+      <div class="nav-label categories-label">工具分类</div>
+      <nav id="categories" aria-label="工具分类"></nav>
+      <div class="sidebar-bottom">
+        <span class="status-dot"></span>本地运行 · 数据留在设备上<small id="version"></small>
+      </div>
+    </aside>
+    <main>
+      <header>
+        <div class="header-leading">
+          <button
+            id="toggle-sidebar"
+            class="sidebar-toggle"
+            aria-controls="sidebar"
+            aria-expanded="true"
+            aria-label="隐藏导航"
+            title="隐藏导航"
+          >
+            ☰
+          </button>
+          <div class="breadcrumb">工作空间 <span>/</span> <b id="breadcrumb">全部工具</b></div>
+        </div>
+        <span class="local-badge">● 离线可用</span>
+      </header>
+      <section id="home">
+        <div class="search-row">
+          <label class="search"
+            ><span>⌕</span
+            ><input
+              id="search"
+              type="search"
+              placeholder="搜索工具名称、功能或关键词…"
+              aria-label="搜索工具"
+            /><kbd>Ctrl K</kbd></label
+          ><span id="tool-count"></span>
+        </div>
+        <div class="section-heading">
+          <div class="section-title-row">
+            <h2 id="section-title">全部工具</h2>
+            <button id="edit-order" aria-pressed="false">编辑顺序</button>
+          </div>
+        </div>
+        <div id="tool-grid" class="tool-grid"></div>
+        <div class="extension-note">
+          <span>＋</span>
+          <div>
+            <strong>为你的工作流，留一点空间</strong>
+            <p>工具箱采用模块化设计，新的灵感随时可以加入。</p>
+          </div>
+          <span class="note-tag">持续生长中</span>
+        </div>
+      </section>
+      <footer>拾用 TOOLBOX <span>简单、专注、触手可及。</span></footer>
+    </main>
+    <div id="toast" role="status" hidden></div>
+    <script src="./app.js"></script>
+  </body>
+</html>

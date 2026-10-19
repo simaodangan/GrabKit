@@ -1,0 +1,54 @@
+:host {
+  font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+  color: #55546a;
+}
+* {
+  box-sizing: border-box;
+}
+.bar {
+  display: flex;
+  align-items: center;
+  height: 42px;
+  background: #faf9fd;
+  border-bottom: 1px solid #e7e4ef;
+  -webkit-app-region: drag;
+  user-select: none;
+}
+.app-icon {
+  width: 24px;
+  height: 24px;
+  margin: 0 12px;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+.spacer {
+  flex: 1;
+  min-width: 24px;
+  align-self: stretch;
+}
+button {
+  height: 41px;
+  min-width: 46px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 18px;
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+}
+button.menu {
+  font-size: 12px;
+  padding: 0 14px;
+}
+button:hover {
+  background: #ebe7f4;
+}
+button.close:hover {
+  background: #d94452;
+  color: white;
+}
+button:focus-visible {
+  outline: 2px solid #806bd2;
+  outline-offset: -3px;
+}

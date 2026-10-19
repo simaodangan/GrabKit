@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'none'"
+    />
+    <title>设置 · 拾用</title>
+    <link rel="stylesheet" href="./settings.css" />
+  </head>
+  <body>
+    <main>
+      <h1>设置</h1>
+      <section aria-labelledby="config-title">
+        <div>
+          <h2 id="config-title">本地配置</h2>
+          <p>清除收藏工具、最近使用记录、工具排列顺序和侧栏显示偏好，恢复默认设置。</p>
+        </div>
+        <button id="clear-config">清除配置</button>
+      </section>
+      <p id="status" role="status"></p>
+    </main>
+    <script src="./settings.js"></script>
+  </body>
+</html>
