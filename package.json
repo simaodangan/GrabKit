@@ -5,7 +5,7 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "check": "node scripts/check.cjs",
+    "check": "node tests/check.cjs",
     "pack:win": "node scripts/pack-win.cjs"
   },
   "keywords": [],
@@ -14,6 +14,7 @@
     "productName": "随手用",
     "executableName": "GrabKit",
     "asar": false,
+    "files": ["**/*", "!tests/**"],
     "win": {
       "icon": "shared/app-icon.ico",
       "target": [{ "target": "nsis", "arch": ["x64"] }]

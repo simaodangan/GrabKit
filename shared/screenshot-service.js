@@ -15,10 +15,13 @@ const { promisify } = require('node:util');
 const execute = promisify(execFile);
 const path = require('node:path');
 const fs = require('node:fs/promises');
+const projectFile = require('./screenshot-project');
 const { windows } = require('./window-service');
 const sessions = new Map();
 const opacityPanels = new Map();
+const editorPanels = new Map();
 const desktopPicker = require('./desktop-picker');
+const nativeMouse = require('./screenshot-mouse');
 let capturing = false;
 let preferences = { includeCursor: true, hideWindow: true, magnification: 4 };
 function options(value) {
@@ -85,7 +88,7 @@ function screenshotFilename(date) {
   const pad = (value) => String(value).padStart(2, '0');
   return `截图-${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}-${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}.png`;
 }
-function create(image, bounds, selection = false) {
+function create(image, bounds, selection = false, project = null) {
   const border = selection ? 0 : 3;
   const point = bounds || screen.getCursorScreenPoint();
   const initialBounds = selection
@@ -105,8 +108,9 @@ function create(image, bounds, selection = false) {
     useContentSize: true,
     hasShadow: false,
     resizable: !selection,
+    maximizable: false,
     movable: !selection,
-    alwaysOnTop: true,
+    alwaysOnTop: selection,
     show: false,
     thickFrame: false,
     roundedCorners: false,
@@ -122,11 +126,16 @@ function create(image, bounds, selection = false) {
   const state = {
     window,
     image,
+    project,
+    hasEdited: !!project?.shapes.length,
     selection,
     border,
     opacity: 1,
     filename: screenshotFilename(new Date())
   };
+  window.on('will-move', () => {
+    if (state.editing) window.webContents.send('shot:remind');
+  });
   let viewportTimer;
   const nativeHandle = () => window.getNativeWindowHandle().readBigUInt64LE().toString();
   const refreshViewport = () => {
@@ -159,7 +168,10 @@ function create(image, bounds, selection = false) {
   window.setMenu(null);
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   window.webContents.on('will-navigate', (event) => event.preventDefault());
-  window.on('close', () => state.openMenu?.closePopup(window));
+  window.on('close', () => {
+    state.closing = true;
+    state.openMenu?.closePopup(window);
+  });
   window.on('closed', () => sessions.delete(sessionId));
   window.webContents.on('context-menu', () => {
     if (!selection) popup(state);
@@ -169,10 +181,6 @@ function create(image, bounds, selection = false) {
     if (!selection) popup(state);
   });
   window.webContents.on('before-input-event', (event, input) => {
-    if (input.type === 'keyDown' && input.key === 'Escape') {
-      event.preventDefault();
-      window.close();
-    }
     if (
       !selection &&
       input.type === 'keyDown' &&
@@ -189,6 +197,13 @@ function create(image, bounds, selection = false) {
     if (bounds && !selection) window.setContentBounds(initialBounds);
     window.focus();
     refreshViewport();
+    if (!selection && process.platform === 'win32' && typeof window.getNativeWindowHandle === 'function') {
+      nativeMouse.watch(window, action => {
+        if (window.isDestroyed()) return;
+        if (action === 'menu') popup(state);
+        else if (action === 'double' && !state.editing) window.webContents.send('shot:remind');
+      });
+    }
   });
   window
     .loadFile(path.join(__dirname, '../tools/screenshot/picture.html'))
@@ -254,7 +269,7 @@ function openOpacity(state) {
     frame: false,
     resizable: false,
     parent: state.window,
-    alwaysOnTop: true,
+    alwaysOnTop: state.window.isAlwaysOnTop(),
     skipTaskbar: true,
     show: false,
     backgroundColor: '#f7f8fc',
@@ -286,7 +301,7 @@ function openOpacity(state) {
 }
 async function copyImage(state) {
   try {
-    await clipboard.writeImage(state.image);
+    await clipboard.writeImage(state.hasEdited ? await renderedImage(state) : state.image);
   } catch (error) {
     if (!state.window.isDestroyed()) {
       dialog
@@ -307,8 +322,16 @@ function popup(state) {
       label: '窗口置顶',
       type: 'checkbox',
       checked: window.isAlwaysOnTop(),
-      click: (item) => window.setAlwaysOnTop(item.checked)
+      click: (item) => {
+        window.setAlwaysOnTop(item.checked);
+        for (const panel of [state.editorPanel, state.opacityPanel])
+          if (panel && !panel.isDestroyed()) panel.setAlwaysOnTop(item.checked);
+      }
     },
+    { label: state.editing ? '退出编辑' : '编辑图片', click: () => setEditing(state, !state.editing) },
+    { type: 'separator' },
+    { label: '复制图片', accelerator: 'CommandOrControl+C', click: () => copyImage(state) },
+    { type: 'separator' },
     { label: '透明度…', click: () => openOpacity(state) },
     {
       label: '边框粗细',
@@ -333,7 +356,6 @@ function popup(state) {
         }
       }))
     },
-    { type: 'separator' },
     {
       label: '重置尺寸（100%）',
       click: () => {
@@ -346,8 +368,9 @@ function popup(state) {
         window.setSize(size.width, size.height);
       }
     },
-    { label: '复制图片', accelerator: 'CommandOrControl+C', click: () => copyImage(state) },
-    { label: '保存图片…', click: () => saveImage(state) },
+    { type: 'separator' },
+    { label: '保存 PNG 图片…', click: () => saveImage(state) },
+    { label: '保存源文件…', click: () => saveProject(state) },
     { type: 'separator' },
     { label: '关闭图片', click: () => window.close() },
     {
@@ -383,7 +406,7 @@ async function saveImage(state) {
       filters: [{ name: 'PNG 图片', extensions: ['png'] }]
     });
     if (!result.canceled && result.filePath)
-      await fs.writeFile(result.filePath, state.image.toPNG());
+      await fs.writeFile(result.filePath, (await renderedImage(state)).toPNG());
   } catch (error) {
     if (!state.window.isDestroyed())
       dialog.showMessageBox(state.window, {
@@ -393,6 +416,143 @@ async function saveImage(state) {
       });
   }
 }
+async function saveProject(state) {
+  try {
+    const result = await dialog.showSaveDialog(state.window, {
+      title: '保存 GrabKit 截图源文件',
+      defaultPath: state.filename.replace(/\.png$/i, '') + '.zip.gkshot',
+      // Windows filters match the final suffix; compound extensions get appended twice.
+      filters: [{ name: 'GrabKit 截图工程 (*.zip.gkshot)', extensions: ['gkshot'] }]
+    });
+    if (result.canceled || !result.filePath) return;
+    const shapes = await state.window.webContents.executeJavaScript('window.screenshotEditor.exportProject()');
+    const destination = /\.zip\.gkshot$/i.test(result.filePath) ? result.filePath : result.filePath + '.zip.gkshot';
+    await fs.writeFile(destination, projectFile.encode(state.image.toPNG(), shapes));
+  } catch (error) {
+    if (!state.window.isDestroyed()) await dialog.showMessageBox(state.window, { type:'error', message:'源文件保存失败', detail:error.message });
+  }
+}
+ipcMain.handle('shot:save', (event, format) => {
+  const state = editorPanels.get(event.sender.id) || sessions.get(event.sender.id);
+  if (!state || state.selection || !['png','project'].includes(format)) throw new Error('保存参数无效');
+  return format === 'png' ? saveImage(state) : saveProject(state);
+});
+ipcMain.handle('shot:open-project', async event => {
+  const requester = owner(event);
+  const result = await dialog.showOpenDialog(requester, { title:'打开 GrabKit 截图源文件', properties:['openFile'], filters:[{name:'GrabKit 截图工程 (*.zip.gkshot)',extensions:['gkshot']}] });
+  if (result.canceled || !result.filePaths.length) return false;
+  const filename = result.filePaths[0];
+  if ((await fs.stat(filename)).size > projectFile.MAX) throw new Error('源文件过大');
+  const { project, image:buffer } = projectFile.decode(await fs.readFile(filename));
+  const image = nativeImage.createFromBuffer(buffer);
+  if (image.isEmpty()) throw new Error('源文件中的原图无效');
+  create(image, undefined, false, project);
+  return true;
+});
+ipcMain.handle('shot:project-loaded', event => {
+  const state = sessions.get(event.sender.id);
+  if (!state?.project) throw new Error('未知源文件');
+  setEditing(state, true);
+});
+function setEditing(state, editing) {
+  // A child can close after the parent's WebContents dies but before its window does.
+  if (state.closing || state.window.isDestroyed() || state.window.webContents.isDestroyed()) return;
+  state.editing = editing;
+  if (editing) state.hasEdited = true;
+  state.window.webContents.send('shot:editing', editing);
+  if (editing) openEditorPanel(state);
+  else if (state.editorPanel && !state.editorPanel.isDestroyed()) state.editorPanel.hide();
+}
+function openEditorPanel(state) {
+  if (state.editorPanel && !state.editorPanel.isDestroyed()) {
+    state.editorPanel.show();
+    return;
+  }
+  const bounds = state.window.getBounds();
+  const area = screen.getDisplayNearestPoint(bounds).workArea;
+  const width = Math.min(620, area.width), height = 1;
+  const below = bounds.y + bounds.height + 8;
+  const y = below + height <= area.y + area.height ? below : bounds.y - height - 8;
+  const panel = new BrowserWindow({
+    x: Math.max(area.x, Math.min(bounds.x, area.x + area.width - width)),
+    y: Math.max(area.y, Math.min(y, area.y + area.height - height)),
+    width, height, minWidth: 1, minHeight: 1, frame: false, useContentSize: true, resizable: false,
+    thickFrame: false, hasShadow: false, roundedCorners: false,
+    parent: state.window, alwaysOnTop: state.window.isAlwaysOnTop(), skipTaskbar: true, show: false,
+    backgroundColor: '#f7f8fc',
+    webPreferences: { preload: path.join(__dirname, 'screenshot-preload.js'), contextIsolation: true, sandbox: true, nodeIntegration: false }
+  });
+  state.editorPanel = panel;
+  state.editorPanelFitted = false;
+  const panelId = panel.webContents.id;
+  editorPanels.set(panelId, state);
+  panel.setMenu(null);
+  panel.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  panel.webContents.on('will-navigate', event => event.preventDefault());
+  panel.once('closed', () => {
+    editorPanels.delete(panelId);
+    state.editorPanel = null;
+    if (state.editing && !state.window.isDestroyed()) setEditing(state, false);
+  });
+  state.window.once('closed', () => { if(!panel.isDestroyed())panel.close(); });
+  panel.loadFile(path.join(__dirname, '../tools/screenshot/editor-toolbar.html')).catch(() => panel.close());
+}
+ipcMain.handle('shot:editor-fit', (event, size) => {
+  const state = editorPanels.get(event.sender.id);
+  if (!state || !size || !Number.isFinite(size.width) || !Number.isFinite(size.height) ||
+      size.width < 1 || size.width > 2000 || size.height < 1 || size.height > 2000)
+    throw new Error('工具栏尺寸无效');
+  const panel = state.editorPanel;
+  const zoom = panel.webContents.getZoomFactor();
+  const bounds = panel.getBounds();
+  const area = screen.getDisplayNearestPoint(bounds).workArea;
+  const width = Math.min(area.width, Math.ceil(size.width * zoom));
+  const height = Math.min(area.height, Math.ceil(size.height * zoom));
+  let x = bounds.x, y = bounds.y;
+  if (!state.editorPanelFitted) {
+    const picture = state.window.getBounds();
+    x = picture.x;
+    const below = picture.y + picture.height + 8;
+    y = below + height <= area.y + area.height ? below : picture.y - height - 8;
+    state.editorPanelFitted = true;
+  }
+  panel.setContentSize(width, height);
+  panel.setPosition(
+    Math.max(area.x, Math.min(x, area.x + area.width - width)),
+    Math.max(area.y, Math.min(y, area.y + area.height - height))
+  );
+  if (state.editing) panel.show();
+});
+ipcMain.handle('shot:editor-state', (event, value) => {
+  const state = sessions.get(event.sender.id);
+  if (!state || state.selection) throw new Error('未知贴图');
+  state.editorControls = value;
+  if (state.editorPanel && !state.editorPanel.isDestroyed()) state.editorPanel.webContents.send('shot:editor-state', value);
+});
+ipcMain.handle('shot:editor-command', (event, value) => {
+  const state = editorPanels.get(event.sender.id);
+  if (!state?.editing || !value) throw new Error('编辑状态无效');
+  const tools = ['select','pencil','line','arrow','rect','round','ellipse','text'];
+  const properties = ['width','size','stroke','fill','use-stroke','use-fill'];
+  if (!(value.type === 'tool' && tools.includes(value.value)) &&
+      !(value.type === 'property' && properties.includes(value.name) && ['string','boolean'].includes(typeof value.value)) &&
+      !['delete','done'].includes(value.type)) throw new Error('编辑指令无效');
+  state.window.webContents.send('shot:editor-command', value);
+  if (value.type === 'tool') state.window.focus();
+});
+async function renderedImage(state) {
+  if (!state.hasEdited) return state.image;
+  const data = await state.window.webContents.executeJavaScript('window.screenshotEditor.exportPNG()');
+  if (typeof data !== 'string' || !data.startsWith('data:image/png;base64,')) throw new Error('图片合成失败');
+  const image = nativeImage.createFromDataURL(data);
+  if (image.isEmpty()) throw new Error('图片合成失败');
+  return image;
+}
+ipcMain.handle('shot:editing', (event, value) => {
+  const state = sessions.get(event.sender.id);
+  if (!state || state.selection || typeof value !== 'boolean') throw new Error('编辑状态无效');
+  setEditing(state, value);
+});
 ipcMain.handle('shot:list', async (event, kind) => {
   owner(event);
   const items = await sources(kind);
@@ -468,9 +628,13 @@ async function selectOnDesktop(requester, kind, settings) {
     if (hidden && !requester.isDestroyed()) requester.showInactive();
   }
 }
-app.on('before-quit', () => desktopPicker.stop());
+app.on('before-quit', () => {
+  desktopPicker.stop();
+  nativeMouse.stop();
+});
 async function start(requester, kind, settings) {
   if (!['screen', 'window'].includes(kind)) throw new Error('截图类型无效');
+  if (process.platform === 'win32') nativeMouse.warm();
   if (process.platform === 'win32') return selectOnDesktop(requester, kind, settings);
   const items = await sources(kind);
   if (kind === 'screen') {
@@ -526,6 +690,8 @@ function initialize(requester) {
 }
 module.exports = { initialize };
 ipcMain.handle('shot:ready', (event) => {
+  const editor = editorPanels.get(event.sender.id);
+  if (editor) return editor.editorControls || null;
   const panel = opacityPanels.get(event.sender.id);
   if (panel) return { opacity: Math.round(panel.state.opacity * 100) };
   const state = sessions.get(event.sender.id);
@@ -534,7 +700,8 @@ ipcMain.handle('shot:ready', (event) => {
     dataUrl: state.image.toDataURL(),
     selection: state.selection,
     border: state.border,
-    viewport: state.viewport
+    viewport: state.viewport,
+    project: state.project
   };
 });
 ipcMain.handle('shot:cancel', (event) => {

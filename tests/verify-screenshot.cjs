@@ -48,6 +48,7 @@ class Window extends EventEmitter {
     this.webContents.id = created.length + 10;
     this.webContents.setWindowOpenHandler = () => {};
     this.webContents.send = () => {};
+    this.webContents.isDestroyed = () => false;
     this.webContents.getZoomFactor = () => 1;
     created.push(this);
   }
@@ -83,6 +84,9 @@ class Window extends EventEmitter {
   }
   setSize(width, height) {
     Object.assign(this.options, { width, height });
+  }
+  setContentSize(width, height) {
+    this.setSize(width, height);
   }
   setMenu() {}
   loadFile() {
@@ -180,8 +184,10 @@ const electron = {
 };
 vm.runInNewContext(fs.readFileSync(require.resolve('../shared/screenshot-service'), 'utf8'), {
   require: (name) =>
-    name === './clipboard'
+    name === './screenshot-project' ? require('../shared/screenshot-project') : name === './clipboard'
       ? electron.clipboard
+      : name === './screenshot-mouse'
+        ? { watch() {}, warm() {}, stop() {} }
       : name === './desktop-picker'
         ? picker
         : name === 'electron'
@@ -234,6 +240,16 @@ vm.runInNewContext(fs.readFileSync(require.resolve('../shared/screenshot-service
     JSON.stringify({ x: 200, y: 200, width: 600, height: 400 })
   );
   const picture = created[1];
+  assert.equal(picture.options.alwaysOnTop, false, '截图贴图默认不置顶');
+  assert.equal(picture.options.maximizable, false, '双击截图不能最大化');
+  assert.equal(handlers.has('shot:drag'), false, '贴图由系统原生处理拖动');
+  picture.webContents.emit(
+    'before-input-event',
+    { preventDefault() {} },
+    { type: 'keyDown', key: 'Escape' }
+  );
+  assert.equal(handlers.get('shot:ready')({ sender: picture.webContents }).selection, false,
+    'Esc 不应关闭截图贴图');
   function openMenu(window = picture) {
     nativeMenuOptions?.callback?.();
     const count = created.length;
@@ -242,13 +258,19 @@ vm.runInNewContext(fs.readFileSync(require.resolve('../shared/screenshot-service
     return menu;
   }
   let items = openMenu();
-  assert.deepEqual(Array.from(items, (item) => item.label).filter(Boolean), [
+  assert.deepEqual(Array.from(items, (item) => item.label || item.type), [
     '窗口置顶',
+    '编辑图片',
+    'separator',
+    '复制图片',
+    'separator',
     '透明度…',
     '边框粗细',
     '重置尺寸（100%）',
-    '复制图片',
-    '保存图片…',
+    'separator',
+    '保存 PNG 图片…',
+    '保存源文件…',
+    'separator',
     '关闭图片',
     '关闭所有图片…'
   ]);
@@ -346,11 +368,41 @@ vm.runInNewContext(fs.readFileSync(require.resolve('../shared/screenshot-service
   assert.equal(created.at(-1).options.width, 1006);
   assert.equal(created.at(-1).options.height, 506);
   const original = created.at(-1);
+  electron.dialog.showSaveDialog = async (_window, options) => {
+    assert.match(options.defaultPath, /^截图-\d{8}-\d{6}\.zip\.gkshot$/);
+    assert.deepEqual(Array.from(options.filters[0].extensions), ['gkshot'], 'Windows 过滤器只使用最后一段扩展名');
+    return { canceled:true };
+  };
+  await openMenu(original).find(item => item.label === '保存源文件…').click();
   original.options.x = 900;
   original.options.y = 900;
   original.emit('ready-to-show');
   assert.equal(original.options.x, -503);
   assert.equal(original.options.y, 117);
+  handlers.get('shot:editing')({ sender: original.webContents }, true);
+  const editorPanel = created.at(-1);
+  assert.equal(editorPanel.options.minHeight, 1, '工具栏不应保留固定最小高度');
+  assert.equal(editorPanel.options.resizable, false);
+  assert.equal(editorPanel.options.thickFrame, false, '工具栏不应保留原生厚边框');
+  assert.equal(editorPanel.options.hasShadow, false);
+  const editorEvent = { sender: editorPanel.webContents };
+  handlers.get('shot:editor-fit')(editorEvent, { width: 540, height: 102 });
+  assert.equal(editorPanel.options.width, 540);
+  assert.equal(editorPanel.options.height, 102);
+  assert.equal(editorPanel.visible, true);
+  assert.throws(() => handlers.get('shot:editor-fit')(editorEvent, { width: -1, height: 100 }), /工具栏尺寸无效/);
+  // Windows may destroy the parent renderer before closing the child toolbar.
+  original.webContents.isDestroyed = () => true;
+  original.webContents.send = () => { throw new Error('Object has been destroyed'); };
+  assert.doesNotThrow(() => editorPanel.emit('closed'));
+  original.webContents.isDestroyed = () => false;
+  original.webContents.send = () => {};
+  handlers.get('shot:editing')({ sender: original.webContents }, true);
+  const closingPanel = created.at(-1);
+  original.emit('close');
+  original.webContents.send = () => { throw new Error('Object has been destroyed'); };
+  assert.doesNotThrow(() => closingPanel.emit('closed'));
+  handlers.get('shot:editing')({ sender: original.webContents }, false);
   const all = openMenu(original).find((item) => item.label === '关闭所有图片…');
   confirmation = 0;
   all.click();

@@ -10,6 +10,7 @@ ipcMain.handle('window:chrome', () => ({
 }));
 ipcMain.handle('shot:prepare', () => {});
 ipcMain.handle('shot:configure', () => {});
+ipcMain.handle('shot:open-project', () => { requests.push({ kind:'project' }); });
 ipcMain.handle('shot:start', (_event, kind, options) => {
   requests.push({ kind, options });
 });
@@ -32,13 +33,16 @@ app.whenReady().then(async () => {
       const buttons = [...document.querySelectorAll('.capture-actions button')];
       return { buttons: buttons.map(button => { const r = button.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; }), cursor: document.querySelector('#cursor').checked, hide: document.querySelector('#hide').checked };
     })()`);
-    assert.equal(layout.buttons.length, 1);
+    assert.equal(layout.buttons.length, 2);
     assert.ok(layout.buttons[0].height <= 56);
     assert.ok(layout.cursor && layout.hide);
     await window.webContents.executeJavaScript(`document.querySelector('#region').click()`);
     await new Promise((resolve) => setTimeout(resolve, 80));
     assert.equal(requests.length, 1);
     assert.equal(requests[0].kind, 'screen');
+    await window.webContents.executeJavaScript(`document.querySelector('#open-project').click()`);
+    await new Promise(resolve => setTimeout(resolve, 80));
+    assert.equal(requests[1].kind, 'project');
     const preview = await window.webContents.capturePage();
     await fs.mkdir(path.resolve(__dirname, '../.npm-cache'), { recursive: true });
     await fs.writeFile(

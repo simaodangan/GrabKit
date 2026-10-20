@@ -49,7 +49,11 @@ shared/
   window-service.js         窗口复用、安全配置、关闭确认
   tool-page.css             公共工具页面样式
   tool-page.js              公共置顶交互
-scripts/check.cjs           脚本语法、页面资源、工具发现检查
+tests/                      开发验证脚本，不打包到主程序
+  check.cjs                 脚本语法、页面资源、工具发现检查
+  check-startup.cjs          开机自启动检查
+  verify-*.cjs              截图、编辑、源文件、剪贴板等功能验证
+scripts/                    打包、发布和资源生成脚本
 ```
 
 ## 添加独立工具

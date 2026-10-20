@@ -1,0 +1,39 @@
+#annotations { position:fixed; pointer-events:none; z-index:2; }
+.editing { -webkit-app-region:no-drag; }
+.editing #annotations { pointer-events:auto; cursor:crosshair; touch-action:none; }
+#editor-toolbar { display:none; box-sizing:border-box; padding:6px; color:#252333; background:#f7f8fc; font:12px sans-serif; }
+.editor-tool-row { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.editor-tools { display:flex; align-items:center; gap:4px; }
+.editor-properties { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-top:6px; }
+#editor-toolbar button { display:grid; place-items:center; box-sizing:border-box; flex:0 0 32px; width:32px; height:32px; margin:0; padding:0; border:1px solid #c9c4da; border-radius:4px; background:white; color:#252333; cursor:pointer; line-height:1; }
+#editor-toolbar svg { display:block; width:20px; height:20px; margin:0; pointer-events:none; }
+#editor-toolbar button[data-tool]:hover { background:#ebe8f8; border-color:#7764d8; }
+#editor-toolbar button:focus-visible { outline:2px solid #7764d8; outline-offset:1px; }
+#editor-toolbar button[aria-pressed=true] { background:#7764d8; color:white; }
+#editor-toolbar button:disabled { opacity:.45; }
+#editor-toolbar label { display:flex; align-items:center; gap:3px; }
+#editor-toolbar input[type=number] { width:48px; }
+#editor-toolbar input[type=color] { width:27px; height:23px; padding:1px; }
+#editor-text { position:fixed; z-index:11; width:180px; max-width:90vw; height:70px; color:#222; background:#fff; border:1px solid #7764d8; -webkit-app-region:no-drag; }
+
+/* The controls live in their own native window so they can leave the screenshot. */
+.editing #editor-toolbar { display:none; }
+.editor-panel { margin:0; background:#f7f8fc; }
+.editor-panel #editor-toolbar { display:block; position:static; width:auto; max-width:none; max-height:none; border:1px solid #a99dcc; border-radius:0; box-shadow:none; }
+.editor-panel button,.editor-panel input { -webkit-app-region:no-drag; }
+#editor-text[hidden] { display:none; }
+.editor-panel, .editor-panel #editor-toolbar { -webkit-app-region:drag; }
+.editor-panel label, .editor-panel button, .editor-panel input { -webkit-app-region:no-drag; }
+#editor-toolbar #edit-close { border-color:transparent; background:transparent; }
+#editor-toolbar #edit-close:hover { background:#e44949; color:white; }
+.editor-panel { width:max-content; max-width:100vw; }
+html:has(> .editor-panel) { margin:0; padding:0; overflow:hidden; }
+.editor-panel { padding:0; min-height:0; }
+.editor-panel #editor-toolbar { box-sizing:border-box; width:max-content; max-width:100vw; overflow:visible; }
+#editor-toolbar input[type=color]:disabled { opacity:.35; cursor:not-allowed; }
+#editor-text { padding:0; font-family:sans-serif; line-height:1.2; box-sizing:content-box; }
+
+.editor-file-actions { display:flex; gap:4px; align-items:center; }
+#editor-toolbar .editor-save { display:flex; flex:0 0 auto; width:auto; gap:4px; padding:0 7px; font:12px sans-serif; white-space:nowrap; }
+#editor-toolbar .editor-save svg { flex:0 0 20px; }
+#editor-toolbar button:hover { background:#ebe8f8; border-color:#7764d8; }

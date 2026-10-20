@@ -21,6 +21,14 @@ body {
   pointer-events: none;
   z-index: 5;
 }
+#screenshot-reminder {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+  opacity: 0;
+  box-shadow: inset 0 0 0 3px #f59e0b;
+}
 #picture {
   display: block;
   width: 100%;

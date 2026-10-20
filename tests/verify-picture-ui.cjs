@@ -4,7 +4,7 @@ const path = require('node:path');
 const fs = require('node:fs/promises');
 app.disableHardwareAcceleration();
 let opacity;
-ipcMain.handle('shot:ready', event => { dataUrl: nativeImage.createFromBitmap(Buffer.from(Array(6).fill([0, 0, 255, 255]).flat()), { width: 3, height: 2 }).toDataURL(), selection: false, border: 3 });
+ipcMain.handle('shot:ready', event => ({ dataUrl: nativeImage.createFromBitmap(Buffer.from(Array(6).fill([0, 0, 255, 255]).flat()), { width: 3, height: 2 }).toDataURL(), selection: false, border: 3 }));
 let submenuCalls = 0;
 app.whenReady().then(async () => {
   try {

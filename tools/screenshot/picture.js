@@ -9,6 +9,24 @@ const frame = document.createElement('canvas');
 frame.id = 'picture-frame';
 frame.setAttribute('aria-hidden', 'true');
 document.body.append(frame);
+const reminder = document.createElement('div');
+reminder.id = 'screenshot-reminder';
+reminder.setAttribute('aria-hidden', 'true');
+document.body.append(reminder);
+let reminderAnimation;
+function flashScreenshotBorder() {
+  if (selecting) return;
+  reminderAnimation?.cancel();
+  reminderAnimation = reminder.animate(
+    [{ opacity: 0 }, { opacity: 1, offset: 0.25 }, { opacity: 1, offset: 0.65 }, { opacity: 0 }],
+    { duration: 420, iterations: 3 }
+  );
+}
+window.addEventListener('screenshot:remind', flashScreenshotBorder);
+window.shot.onRemind(flashScreenshotBorder);
+document.addEventListener('dblclick', (event) => {
+  if ([picture, document.body].includes(event.target)) flashScreenshotBorder();
+});
 function drawFrame() {
   const scale = devicePixelRatio || 1;
   const viewport = document.documentElement.getBoundingClientRect();
@@ -46,6 +64,10 @@ window.shot
   .ready()
   .then((state) => {
     picture.src = state.dataUrl;
+    if (state.project) {
+      window.screenshotEditor.importProject(state.project.shapes);
+      picture.decode().then(() => window.shot.projectLoaded()).catch(() => window.shot.cancel());
+    }
     selecting = state.selection;
     borderWidth = state.border || 0;
     nativeViewport = state.viewport;
@@ -93,13 +115,15 @@ document.addEventListener('pointerup', async (event) => {
     });
   } catch {
     submitting = false;
-    document.querySelector('#hint').textContent = '截图失败，请重新框选或按 Esc 取消';
+    document.querySelector('#hint').textContent = '截图失败，请重新框选或右键取消';
   }
 });
 document.addEventListener('pointercancel', () => {
   start = null;
 });
 document.addEventListener('contextmenu', (event) => {
-  event.preventDefault();
-  if (selecting) window.shot.cancel();
+  if (selecting) {
+    event.preventDefault();
+    window.shot.cancel();
+  }
 });

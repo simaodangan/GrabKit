@@ -81,6 +81,7 @@ contextBridge.exposeInMainWorld('desktop', {
   setAlwaysOnTop: (value) => ipcRenderer.invoke('window:pin', value),
   captureScreens: () => ipcRenderer.invoke('screen:capture'),
   screenshots: {
+    openProject: () => ipcRenderer.invoke('shot:open-project'),
     prepare: () => ipcRenderer.invoke('shot:prepare'),
     list: (kind) => ipcRenderer.invoke('shot:list', kind),
     capture: (kind, id) => ipcRenderer.invoke('shot:capture', kind, id),

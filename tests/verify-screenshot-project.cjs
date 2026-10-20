@@ -1,0 +1,16 @@
+const assert = require('node:assert/strict');
+const { encode, decode } = require('../shared/screenshot-project');
+const image = Buffer.from('original PNG bytes');
+const shapes = ['text','pencil','arrow','rect','round','ellipse','line'].map(type => ({ type, points:[{x:1.5,y:2},{x:300,y:400}], x:1.5,y:2,width:3,size:24,stroke:'#ff3333',fill:null,text:'中文\n文字' }));
+const archive = encode(image, shapes);
+assert.equal(archive.readUInt32LE(), 0x04034b50);
+const restored = decode(archive);
+assert.deepEqual(restored.image, image);
+assert.deepEqual(restored.project.shapes, shapes);
+assert.deepEqual(decode(encode(image, [])).project.shapes, []);
+const damaged = Buffer.from(archive); damaged[50] ^= 1;
+assert.throws(() => decode(damaged));
+assert.throws(() => decode(archive.subarray(0,archive.length-1)));
+assert.throws(() => encode(image,[{...shapes[0],points:[]}]));
+assert.throws(() => encode(image,[{...shapes[0],type:'unknown'}]));
+console.log('源文件验证通过：ZIP、原图与全部标注往返、空工程、损坏和无效数据拒绝');

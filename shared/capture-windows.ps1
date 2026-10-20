@@ -267,10 +267,6 @@ public static class ToolboxCapture {
       base.OnMouseUp(e);
       if (e.Button == MouseButtons.Left) Release(e.Location);
     }
-    protected override void OnKeyDown(KeyEventArgs e) {
-      if (e.KeyCode == Keys.Escape) { e.Handled = true; Finish(false); }
-      base.OnKeyDown(e);
-    }
     protected override void Dispose(bool disposing) {
       if (disposing) inputTimer.Dispose();
       base.Dispose(disposing);

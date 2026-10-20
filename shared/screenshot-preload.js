@@ -1,10 +1,20 @@
 const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('shot', {
   ready: () => ipcRenderer.invoke('shot:ready'),
+  save: (format) => ipcRenderer.invoke('shot:save', format),
+  projectLoaded: () => ipcRenderer.invoke('shot:project-loaded'),
+  editing: (value) => ipcRenderer.invoke('shot:editing', value),
+  onEditing: (callback) => ipcRenderer.on('shot:editing', (_event, value) => callback(value)),
+  editorState: (value) => ipcRenderer.invoke('shot:editor-state', value),
+  editorCommand: (value) => ipcRenderer.invoke('shot:editor-command', value),
+  fitEditor: (size) => ipcRenderer.invoke('shot:editor-fit', size),
+  onEditorState: (callback) => ipcRenderer.on('shot:editor-state', (_event, value) => callback(value)),
+  onEditorCommand: (callback) => ipcRenderer.on('shot:editor-command', (_event, value) => callback(value)),
   crop: (rect) => ipcRenderer.invoke('shot:crop', rect),
   cancel: () => ipcRenderer.invoke('shot:cancel'),
   opacity: (value) => ipcRenderer.invoke('shot:opacity', value),
   fitOpacity: (height) => ipcRenderer.invoke('shot:opacity-fit', height),
   onBorder: (callback) => ipcRenderer.on('shot:border', (_event, value) => callback(value)),
-  onViewport: (callback) => ipcRenderer.on('shot:viewport', (_event, value) => callback(value))
+  onViewport: (callback) => ipcRenderer.on('shot:viewport', (_event, value) => callback(value)),
+  onRemind: (callback) => ipcRenderer.on('shot:remind', () => callback())
 });
