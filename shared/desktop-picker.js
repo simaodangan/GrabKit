@@ -92,10 +92,11 @@ async function request(command) {
   state.queue = operation.catch(() => {});
   return operation;
 }
-async function select(kind, includeCursor) {
+async function select(kind, includeCursor, magnification = 4) {
   if (!['screen', 'window'].includes(kind) || typeof includeCursor !== 'boolean')
     throw new Error('截图参数无效');
-  return request({ mode: kind, cursor: includeCursor });
+  if (!Number.isInteger(magnification) || magnification < 2 || magnification > 8) throw new Error('放大倍数无效');
+  return request({ mode: kind, cursor: includeCursor, magnification });
 }
 async function measure(handle) {
   return (await request({ mode: 'measure-window', handle })).image;

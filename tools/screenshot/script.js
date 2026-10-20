@@ -1,16 +1,21 @@
 const content = document.querySelector('#content');
-content.innerHTML = `<div class="capture-panel" aria-busy="true"><div id="initializing" class="initializing" role="status" aria-live="polite"><span class="loading-spinner" aria-hidden="true"></span><span>截图工具正在初始化，请稍候…</span></div><div class="capture-actions"><button id="region" class="primary">自定义区域截图 <kbd>Ctrl+Shift+R</kbd></button><button id="window" class="primary">选中窗口截图 <kbd>Ctrl+Shift+W</kbd></button></div><div class="capture-options"><label><input id="cursor" type="checkbox" checked> 包含光标</label><label><input id="hide" type="checkbox" checked> 隐藏窗口</label></div></div>`;
+content.innerHTML = `<div class="capture-panel" aria-busy="true"><div id="initializing" class="initializing" role="status" aria-live="polite"><span class="loading-spinner" aria-hidden="true"></span><span>截图工具正在初始化，请稍候…</span></div><div class="capture-actions"><button id="region" class="primary">开始截图 <kbd>Ctrl+Shift+R</kbd></button></div><p class="capture-help">单击截取窗口，按住拖动截取区域；Esc 或右键取消。</p><div class="capture-options"><label><input id="cursor" type="checkbox" checked> 包含光标</label><label><input id="hide" type="checkbox" checked> 隐藏窗口</label></div><div class="capture-zoom"><label for="magnification">预览放大倍数</label><input id="magnification" type="range" min="2" max="8" step="1" value="4"><output id="magnification-value" for="magnification">4×</output></div></div>`;
 const cursor = document.querySelector('#cursor');
 const hide = document.querySelector('#hide');
+const magnification = document.querySelector('#magnification');
 const buttons = [...document.querySelectorAll('.capture-actions button')];
 function settings() {
-  return { includeCursor: cursor.checked, hideWindow: hide.checked };
+  return { includeCursor: cursor.checked, hideWindow: hide.checked, magnification: Number(magnification.value) };
 }
 function configure() {
   window.desktop.screenshots.configure(settings()).catch((error) => showToast(error.message));
 }
 cursor.onchange = configure;
 hide.onchange = configure;
+magnification.oninput = () => {
+  document.querySelector('#magnification-value').textContent = `${magnification.value}×`;
+  configure();
+};
 configure();
 let busy = false;
 buttons.forEach((button) => {
@@ -54,4 +59,3 @@ async function capture(kind) {
   }
 }
 buttons[0].onclick = () => capture('screen');
-buttons[1].onclick = () => capture('window');

@@ -99,3 +99,32 @@
     animation: none;
   }
 }
+
+.capture-help {
+  margin: 14px 0 0;
+  color: #756d84;
+  font-size: 13px;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.capture-zoom {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  margin-top: 18px;
+  font-size: 13px;
+  color: #756d84;
+}
+.capture-zoom input[type="range"] {
+  width: 150px;
+  margin: 0;
+  accent-color: var(--theme-ink);
+  cursor: pointer;
+}
+.capture-zoom output {
+  min-width: 28px;
+  color: #49425f;
+  font-variant-numeric: tabular-nums;
+}

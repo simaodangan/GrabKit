@@ -32,28 +32,20 @@ app.whenReady().then(async () => {
       const buttons = [...document.querySelectorAll('.capture-actions button')];
       return { buttons: buttons.map(button => { const r = button.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; }), cursor: document.querySelector('#cursor').checked, hide: document.querySelector('#hide').checked };
     })()`);
-    assert.equal(layout.buttons.length, 2);
-    const [first, second] = layout.buttons;
-    assert.equal(first.x, second.x);
-    assert.equal(first.width, second.width);
-    assert.ok(first.height <= 56 && second.height <= 56);
-    assert.ok(second.y >= first.y + first.height + 8);
+    assert.equal(layout.buttons.length, 1);
+    assert.ok(layout.buttons[0].height <= 56);
     assert.ok(layout.cursor && layout.hide);
     await window.webContents.executeJavaScript(`document.querySelector('#region').click()`);
     await new Promise((resolve) => setTimeout(resolve, 80));
     assert.equal(requests.length, 1);
     assert.equal(requests[0].kind, 'screen');
-    await window.webContents.executeJavaScript(`document.querySelector('#window').click()`);
-    await new Promise((resolve) => setTimeout(resolve, 80));
-    assert.equal(requests.length, 2);
-    assert.equal(requests[1].kind, 'window');
     const preview = await window.webContents.capturePage();
     await fs.mkdir(path.resolve(__dirname, '../.npm-cache'), { recursive: true });
     await fs.writeFile(
       path.resolve(__dirname, '../.npm-cache/screenshot-ui-preview.png'),
       preview.toPNG()
     );
-    console.log('界面检查通过：纵向按钮、高度不超过 56 像素、默认勾选、单击直接发起截图');
+    console.log('界面检查通过：统一截图入口、高度不超过 56 像素、默认勾选、单击直接发起截图');
     app.exit(0);
   } catch (error) {
     console.error(error);

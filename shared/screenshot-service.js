@@ -20,11 +20,13 @@ const sessions = new Map();
 const opacityPanels = new Map();
 const desktopPicker = require('./desktop-picker');
 let capturing = false;
-let preferences = { includeCursor: true, hideWindow: true };
+let preferences = { includeCursor: true, hideWindow: true, magnification: 4 };
 function options(value) {
   if (!value || typeof value.includeCursor !== 'boolean' || typeof value.hideWindow !== 'boolean')
     throw new Error('截图选项无效');
-  return { includeCursor: value.includeCursor, hideWindow: value.hideWindow };
+  const magnification = value.magnification ?? 4;
+  if (!Number.isInteger(magnification) || magnification < 2 || magnification > 8) throw new Error('放大倍数无效');
+  return { includeCursor: value.includeCursor, hideWindow: value.hideWindow, magnification };
 }
 async function captureImage(kind, item, display, settings) {
   if (process.platform !== 'win32') {
@@ -449,7 +451,7 @@ async function selectOnDesktop(requester, kind, settings) {
       hidden = true;
       await new Promise((resolve) => setTimeout(resolve, 180));
     }
-    const result = await desktopPicker.select(kind, settings.includeCursor);
+    const result = await desktopPicker.select(kind, settings.includeCursor, settings.magnification);
     const output = typeof result === 'string' ? result : result.image;
     const bounds = typeof result === 'object' ? result.bounds : null;
     if (output === 'CANCEL') return false;
