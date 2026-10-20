@@ -9,16 +9,43 @@
     />
     <title>设置 · 拾用</title>
     <link rel="stylesheet" href="./settings.css" />
+    <script src="../shared/theme.js"></script>
   </head>
   <body>
     <main>
       <h1>设置</h1>
+      <section class="theme-section" aria-labelledby="theme-title">
+        <div>
+          <h2 id="theme-title">主题颜色</h2>
+          <p>选择喜欢的强调色，即时应用到所有窗口。</p>
+        </div>
+        <div class="theme-colors" role="group" aria-label="主题颜色">
+          <button class="theme-swatch purple" data-color="#7460d6" aria-label="紫色" title="紫色" aria-pressed="false"></button>
+          <button class="theme-swatch blue" data-color="#3275d5" aria-label="蓝色" title="蓝色" aria-pressed="false"></button>
+          <button class="theme-swatch cyan" data-color="#13858b" aria-label="青色" title="青色" aria-pressed="false"></button>
+          <button class="theme-swatch green" data-color="#38834d" aria-label="绿色" title="绿色" aria-pressed="false"></button>
+          <button class="theme-swatch orange" data-color="#c46c21" aria-label="橙色" title="橙色" aria-pressed="false"></button>
+          <button class="theme-swatch rose" data-color="#c74b72" aria-label="玫红色" title="玫红色" aria-pressed="false"></button>
+          <label class="custom-color" title="自定义颜色">
+            <input type="color" id="custom-theme" value="#7460d6" aria-label="自定义主题颜色" />
+            <span aria-hidden="true">＋</span>
+          </label>
+          <span class="custom-color-label">自定义</span>
+        </div>
+      </section>
+      <section aria-labelledby="startup-title">
+        <div>
+          <h2 id="startup-title">开机自启动</h2>
+          <p id="startup-hint">登录 Windows 后自动启动拾用。免安装版启用后请保持程序路径固定。</p>
+        </div>
+        <label class="startup-toggle"><input id="startup" type="checkbox" role="switch" aria-describedby="startup-hint" disabled /> 开启</label>
+      </section>
       <section aria-labelledby="config-title">
         <div>
           <h2 id="config-title">本地配置</h2>
-          <p>清除收藏工具、最近使用记录、工具排列顺序和侧栏显示偏好，恢复默认设置。</p>
+          <p>清除工具排列顺序、工具隐藏设置、侧栏显示偏好、主题颜色和应用缓存。开机自启动设置保留。</p>
         </div>
-        <button id="clear-config">清除配置</button>
+        <button id="clear-config">清除配置和缓存</button>
       </section>
       <p id="status" role="status"></p>
     </main>

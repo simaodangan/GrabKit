@@ -73,8 +73,8 @@ textarea {
 button {
   cursor: pointer;
   border: 0;
-  background: #175cd3;
-  color: white;
+  background: var(--theme-color);
+  color: var(--theme-on-color);
   padding: 9px 14px;
   border-radius: 8px;
   font-weight: 600;
@@ -137,7 +137,7 @@ button:disabled {
 .help {
   margin-top: 15px;
   padding: 14px 16px;
-  background: #eef4ff;
+  background: var(--theme-soft);
   border-radius: 9px;
   font-size: 13px;
   line-height: 1.8;

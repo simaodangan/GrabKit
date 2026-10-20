@@ -5,18 +5,37 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "check": "node scripts/check.cjs"
+    "check": "node scripts/check.cjs",
+    "pack:win": "node scripts/pack-win.cjs"
   },
   "keywords": [],
   "type": "commonjs",
   "build": {
+    "productName": "拾用",
+    "asar": false,
     "win": {
-      "icon": "shared/app-icon.ico"
+      "icon": "shared/app-icon.ico",
+      "target": [{ "target": "nsis", "arch": ["x64"] }]
+    },
+    "nsis": {
+      "include": "scripts/installer.nsh",
+      "installerIcon": "shared/installer-icon.ico",
+      "artifactName": "electrontoolbox-Setup-${version}-${arch}.${ext}",
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "menuCategory": "拾用",
+      "shortcutName": "拾用",
+      "installerLanguages": ["zh_CN"],
+      "deleteAppDataOnUninstall": false
     },
     "beforePack": "./scripts/stamp-build.cjs"
   },
   "devDependencies": {
-    "electron": "^44.9.0"
+    "electron": "^44.9.0",
+    "electron-builder": "^26.15.3"
   },
   "dependencies": {
     "mathjax": "3.2.2"

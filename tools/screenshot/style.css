@@ -19,7 +19,7 @@
   font-size: 15px;
   font-weight: 500;
   cursor: pointer;
-  border: 1px solid #e1deef;
+  border: 1px solid var(--theme-border);
   border-radius: 8px;
   background: #fff;
   color: #49425f;
@@ -29,11 +29,11 @@
     border-color 0.15s;
 }
 .capture-actions button:hover {
-  background: #f4f1fc;
-  border-color: #b2a5dc;
+  background: var(--theme-soft);
+  border-color: var(--theme-border);
 }
 .capture-actions button:focus-visible {
-  outline: 2px solid #8871ce;
+  outline: 2px solid var(--theme-ink);
   outline-offset: 3px;
 }
 .capture-actions button:disabled {
@@ -60,7 +60,7 @@
   cursor: pointer;
 }
 .capture-options input {
-  accent-color: #8871ce;
+  accent-color: var(--theme-ink);
   width: 15px;
   height: 15px;
 }
@@ -73,15 +73,15 @@
   padding: 12px 16px;
   margin-bottom: 18px;
   border-radius: 8px;
-  background: #eee9f9;
-  color: #77629f;
+  background: var(--theme-soft);
+  color: var(--theme-ink);
   font-size: 13px;
 }
 .loading-spinner {
   width: 15px;
   height: 15px;
-  border: 2px solid #d1c5e7;
-  border-top-color: #8871ce;
+  border: 2px solid var(--theme-border);
+  border-top-color: var(--theme-ink);
   border-radius: 50%;
   animation: loading-spin 0.8s linear infinite;
 }

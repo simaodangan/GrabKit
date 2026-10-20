@@ -1,21 +1,29 @@
 const { BrowserWindow, dialog, Menu } = require('electron');
 const path = require('node:path');
 const windows = new Map();
-function openWindow(id, entry, title) {
+function openWindow(id, entry, title, { show = true } = {}) {
   const existing = windows.get(id);
   if (existing && !existing.isDestroyed()) {
-    if (existing.isMinimized()) existing.restore();
-    existing.show();
-    existing.focus();
+    if (show) {
+      if (existing.isMinimized()) existing.restore();
+      existing.show();
+      existing.focus();
+    }
     return existing;
   }
   const settings = id === 'settings' || id === 'about';
+  const compactSize = {
+    home: { width: 980, height: 680, minWidth: 800, minHeight: 560 },
+    screenshot: { width: 600, height: 520, minWidth: 520, minHeight: 460 }
+  }[id];
   const window = new BrowserWindow({
+    show,
     icon: path.join(__dirname, 'app-icon.ico'),
     width: settings ? 600 : 1180,
-    height: settings ? 300 : 800,
+    height: id === 'settings' ? 640 : settings ? 300 : 800,
     minWidth: settings ? 480 : 800,
     minHeight: settings ? 260 : 600,
+    ...compactSize,
     frame: settings,
     maximizable: !settings,
     title,
@@ -40,13 +48,13 @@ function openWindow(id, entry, title) {
           checked: window.isAlwaysOnTop(),
           accelerator: 'CommandOrControl+Shift+T',
           click: (item) => window.setAlwaysOnTop(item.checked)
-        },
-        {
-          label: '设置',
-          click: () =>
-            openWindow('settings', path.join(__dirname, '../app/settings.html'), '设置 · 拾用')
         }
       ]
+    },
+    {
+      label: '设置',
+      click: () =>
+        openWindow('settings', path.join(__dirname, '../app/settings.html'), '设置 · 拾用')
     },
     {
       label: '帮助',

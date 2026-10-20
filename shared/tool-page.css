@@ -25,10 +25,10 @@ header p {
 }
 .toolbar button {
   background: white;
-  border: 1px solid #e0deeb;
+  border: 1px solid var(--theme-border);
   padding: 8px 12px;
   border-radius: 6px;
-  color: #74658e;
+  color: var(--theme-ink);
 }
 .screen-preview {
   display: block;
@@ -54,7 +54,7 @@ header p {
   margin: 12px 0;
 }
 .preview code {
-  background: #f1eef8;
+  background: var(--theme-soft);
   padding: 2px 5px;
   border-radius: 3px;
 }

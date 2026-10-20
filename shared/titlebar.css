@@ -9,8 +9,8 @@
   display: flex;
   align-items: center;
   height: 42px;
-  background: #faf9fd;
-  border-bottom: 1px solid #e7e4ef;
+  background: var(--theme-soft, #faf9fd);
+  border-bottom: 1px solid var(--theme-border, #e7e4ef);
   -webkit-app-region: drag;
   user-select: none;
 }
@@ -42,7 +42,7 @@ button.menu {
   padding: 0 14px;
 }
 button:hover {
-  background: #ebe7f4;
+  background: var(--theme-hover, #ebe7f4);
 }
 button.close:hover {
   background: #d94452;

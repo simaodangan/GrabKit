@@ -1,0 +1,14 @@
+.themed-app-icon {
+  display: inline-block;
+  position: relative;
+  flex-shrink: 0;
+  background: var(--theme-color, #7460d6);
+  border-radius: 25%;
+}
+.themed-app-icon::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--theme-on-color, #fff);
+  mask: url('./app-icon-mark.svg') center / contain no-repeat;
+}

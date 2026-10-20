@@ -14,18 +14,22 @@ window.addEventListener('DOMContentLoaded', async () => {
     style.rel = 'stylesheet';
     style.href = chrome.assets + 'titlebar.css';
     shadow.append(style);
+    const iconStyle = document.createElement('link');
+    iconStyle.rel = 'stylesheet';
+    iconStyle.href = chrome.assets + 'brand-icon.css';
+    shadow.append(iconStyle);
     const bar = document.createElement('div');
     bar.className = 'bar';
-    const icon = document.createElement('img');
-    icon.className = 'app-icon';
-    icon.src = chrome.assets + 'app-icon.png';
-    icon.alt = '拾用';
+    const icon = document.createElement('span');
+    icon.className = 'app-icon themed-app-icon';
+    icon.setAttribute('role', 'img');
+    icon.setAttribute('aria-label', '拾用');
     bar.append(icon);
-    for (const [index, label] of ['窗口', '帮助'].entries()) {
+    for (const [index, label] of ['窗口', '设置', '帮助'].entries()) {
       const button = document.createElement('button');
       button.className = 'menu';
       button.textContent = label;
-      button.setAttribute('aria-haspopup', 'menu');
+      if (label !== '设置') button.setAttribute('aria-haspopup', 'menu');
       button.onclick = () => {
         const x = Math.round(button.getBoundingClientRect().left);
         ipcRenderer.invoke('window:menu', index, x).catch(console.error);
@@ -57,8 +61,14 @@ window.addEventListener('DOMContentLoaded', async () => {
 contextBridge.exposeInMainWorld('desktop', {
   getVersion: () => ipcRenderer.invoke('app:version'),
   getAppInfo: () => ipcRenderer.invoke('app:about'),
+  settings: {
+    getStartup: () => ipcRenderer.invoke('settings:startup:get'),
+    setStartup: (enabled) => ipcRenderer.invoke('settings:startup:set', enabled),
+    clearCache: () => ipcRenderer.invoke('settings:cache:clear')
+  },
   listTools: () => ipcRenderer.invoke('tools:list'),
-  showToolMenu: (id, selected) => ipcRenderer.invoke('tools:menu', id, selected),
+  syncTrayTools: (ids) => ipcRenderer.invoke('tools:tray:update', ids),
+  showToolMenu: (id, hidden, allowArrange = false) => ipcRenderer.invoke('tools:menu', id, hidden, allowArrange),
   openTool: (id) => ipcRenderer.invoke('tools:open', id),
   clipboard: {
     readText: () => ipcRenderer.invoke('clipboard:read'),

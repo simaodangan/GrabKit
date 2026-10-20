@@ -2,6 +2,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const path = require('node:path');
 const assert = require('node:assert/strict');
+require('./check-startup.cjs');
 const root = path.join(__dirname, '..');
 function checkDirectory(directory) {
   for (const item of fs.readdirSync(directory, { withFileTypes: true })) {
