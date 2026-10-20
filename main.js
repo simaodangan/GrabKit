@@ -18,7 +18,7 @@ let registry = [];
 let tray;
 let trayToolIds = null;
 const openHome = () =>
-  openWindow('home', path.join(__dirname, 'app/index.html'), '拾用 · 桌面工具箱');
+  openWindow('home', path.join(__dirname, 'app/index.html'), '随手用 · 桌面工具箱');
 function refreshTrayMenu() {
   if (!tray) return;
   const tools = (trayToolIds || []).map((id) => registry.find((tool) => tool.id === id));
@@ -28,7 +28,7 @@ function refreshTrayMenu() {
       label: '我的工具',
       submenu: tools.length ? tools.map((tool) => ({
         label: tool.name,
-        click: () => openWindow(tool.id, tool.entry, `${tool.name} · 拾用`)
+        click: () => openWindow(tool.id, tool.entry, `${tool.name} · 随手用`)
       })) : [{ label: trayToolIds === null ? '正在加载…' : '暂无工具', enabled: false }]
     },
     { type: 'separator' },
@@ -73,7 +73,7 @@ handle('settings:cache:clear', async (window) => {
   refreshTrayMenu();
 });
 handle('app:settings', () => {
-  openWindow('settings', path.join(__dirname, 'app/settings.html'), '设置 · 拾用');
+  openWindow('settings', path.join(__dirname, 'app/settings.html'), '设置 · 随手用');
 });
 handle('window:chrome', (window) => ({
   nativeFrame: window === windows.get('settings') || window === windows.get('about'),
@@ -143,7 +143,7 @@ handle('tools:menu', (window, id, hidden, allowArrange = false) => {
 handle('tools:open', (_window, id) => {
   const tool = registry.find((item) => item.id === id);
   if (!tool) throw new Error('工具不存在');
-  openWindow(tool.id, tool.entry, `${tool.name} · 拾用`);
+  openWindow(tool.id, tool.entry, `${tool.name} · 随手用`);
 });
 handle('clipboard:read', () => clipboard.readText());
 handle('clipboard:write', (_window, text) => clipboard.writeText(text));
@@ -177,7 +177,7 @@ else {
       .resize({ width: 32, height: 32 });
     try {
       tray = new Tray(icon);
-      tray.setToolTip('拾用 · 桌面工具箱');
+      tray.setToolTip('随手用 · 桌面工具箱');
       refreshTrayMenu();
       tray.on('double-click', openHome);
     } catch (error) {
@@ -185,7 +185,7 @@ else {
     }
     // Create the tray first; fall back to a visible window if it is unavailable.
     if (!isAutoStart(process.argv) || !tray) openHome();
-    else openWindow('home', path.join(__dirname, 'app/index.html'), '拾用 · 桌面工具箱', { show: false });
+    else openWindow('home', path.join(__dirname, 'app/index.html'), '随手用 · 桌面工具箱', { show: false });
     if (!globalShortcut.register('CommandOrControl+Shift+Space', openHome))
       console.warn('快捷键已被占用：Ctrl+Shift+Space');
     app.on('activate', openHome);

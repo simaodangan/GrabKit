@@ -16,7 +16,7 @@ function getAppInfo() {
     }
   }
   return {
-    name: '拾用 · 桌面工具箱',
+    name: '随手用 · 桌面工具箱',
     editor: 'L. S. · AI 辅助',
     version: app.getVersion().replace(/\.0$/, ''),
     buildDate

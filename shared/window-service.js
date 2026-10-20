@@ -54,7 +54,7 @@ function openWindow(id, entry, title, { show = true } = {}) {
     {
       label: '设置',
       click: () =>
-        openWindow('settings', path.join(__dirname, '../app/settings.html'), '设置 · 拾用')
+        openWindow('settings', path.join(__dirname, '../app/settings.html'), '设置 · 随手用')
     },
     {
       label: '帮助',
@@ -64,7 +64,7 @@ function openWindow(id, entry, title, { show = true } = {}) {
         { type: 'separator' },
         {
           label: '关于',
-          click: () => openWindow('about', path.join(__dirname, '../app/about.html'), '关于拾用')
+          click: () => openWindow('about', path.join(__dirname, '../app/about.html'), '关于随手用')
         }
       ]
     }

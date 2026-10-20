@@ -2,6 +2,12 @@
 !define STARTUP_APPROVED_KEY "Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run"
 !define STARTUP_VALUE_NAME "electrontoolbox"
 
+# Override electron-builder's default branded uninstaller filename in both builds.
+!macro customHeader
+  !undef UNINSTALL_FILENAME
+  !define UNINSTALL_FILENAME "Uninstall.exe"
+!macroend
+
 !ifndef BUILD_UNINSTALLER
   !include "MUI2.nsh"
   !include "nsDialogs.nsh"
@@ -24,7 +30,7 @@
   !macroend
 
   Function InstallOptionsCreate
-    !insertmacro MUI_HEADER_TEXT "安装选项" "选择安装拾用时需要启用的功能。"
+    !insertmacro MUI_HEADER_TEXT "安装选项" "选择安装随手用时需要启用的功能。"
     nsDialogs::Create 1018
     Pop $optionsDialog
     ${If} $optionsDialog == error
@@ -71,11 +77,11 @@
     CreateDirectory "$SMPROGRAMS\${MENU_FILENAME}"
     CreateShortCut "$newStartMenuLink" "$appExe" "" "$appExe" 0
     WinShell::SetLnkAUMI "$newStartMenuLink" "${APP_ID}"
-    CreateShortCut "$SMPROGRAMS\${MENU_FILENAME}\卸载拾用.lnk" "$INSTDIR\${UNINSTALL_FILENAME}"
+    CreateShortCut "$SMPROGRAMS\${MENU_FILENAME}\卸载.lnk" "$INSTDIR\${UNINSTALL_FILENAME}"
   ${Else}
     WinShell::UninstShortcut "$newStartMenuLink"
     Delete "$newStartMenuLink"
-    Delete "$SMPROGRAMS\${MENU_FILENAME}\卸载拾用.lnk"
+    Delete "$SMPROGRAMS\${MENU_FILENAME}\卸载.lnk"
     RMDir "$SMPROGRAMS\${MENU_FILENAME}"
   ${EndIf}
   # The finish page must still launch the app if its menu link was removed.
@@ -85,5 +91,5 @@
 !macro customUnInstall
   DeleteRegValue HKCU "${STARTUP_RUN_KEY}" "${STARTUP_VALUE_NAME}"
   DeleteRegValue HKCU "${STARTUP_APPROVED_KEY}" "${STARTUP_VALUE_NAME}"
-  Delete "$SMPROGRAMS\${MENU_FILENAME}\卸载拾用.lnk"
+  Delete "$SMPROGRAMS\${MENU_FILENAME}\卸载.lnk"
 !macroend

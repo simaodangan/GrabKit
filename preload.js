@@ -23,7 +23,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     const icon = document.createElement('span');
     icon.className = 'app-icon themed-app-icon';
     icon.setAttribute('role', 'img');
-    icon.setAttribute('aria-label', '拾用');
+    icon.setAttribute('aria-label', '随手用');
     bar.append(icon);
     for (const [index, label] of ['窗口', '设置', '帮助'].entries()) {
       const button = document.createElement('button');

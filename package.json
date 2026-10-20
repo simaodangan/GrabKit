@@ -11,7 +11,8 @@
   "keywords": [],
   "type": "commonjs",
   "build": {
-    "productName": "拾用",
+    "productName": "随手用",
+    "executableName": "GrabKit",
     "asar": false,
     "win": {
       "icon": "shared/app-icon.ico",
@@ -20,14 +21,14 @@
     "nsis": {
       "include": "scripts/installer.nsh",
       "installerIcon": "shared/installer-icon.ico",
-      "artifactName": "electrontoolbox-Setup-${version}-${arch}.${ext}",
+      "artifactName": "GrabKit-Setup-${version}-${arch}.${ext}",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "perMachine": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "menuCategory": "拾用",
-      "shortcutName": "拾用",
+      "menuCategory": "随手用",
+      "shortcutName": "随手用",
       "installerLanguages": ["zh_CN"],
       "deleteAppDataOnUninstall": false
     },
