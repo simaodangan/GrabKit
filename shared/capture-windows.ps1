@@ -80,12 +80,15 @@ public static class ToolboxCapture {
     bool previousLeft;
     bool finished;
     Point anchor;
+    Point pointer;
     bool dragging;
+    bool waitingEnd;
     public int PaintCount { get; private set; }
     public Rectangle SelectedRegion;
     public Selector(Bitmap image, bool windows, Rectangle bounds, Rectangle[] targets) {
       background = image; windowMode = windows; desktop = bounds;
       frozenWindows = targets;
+      pointer = new Point(Control.MousePosition.X - bounds.X, Control.MousePosition.Y - bounds.Y);
       FormBorderStyle = FormBorderStyle.None; StartPosition = FormStartPosition.Manual;
       Bounds = desktop; TopMost = true; ShowInTaskbar = false; KeyPreview = true;
       DoubleBuffered = true; AutoScaleMode = AutoScaleMode.None;
@@ -126,16 +129,29 @@ public static class ToolboxCapture {
       DialogResult = accepted ? DialogResult.OK : DialogResult.Cancel; Close();
     }
     void Press(Point point) {
-      if (finished || dragging) return;
+      if (finished) return;
+      if (dragging) {
+        if (waitingEnd) {
+          UpdateRegion(point);
+          if (SelectedRegion.Width >= 2 && SelectedRegion.Height >= 2) Finish(true);
+        }
+        return;
+      }
       if (windowMode) {
         UpdateWindow(new Point(point.X + desktop.Left, point.Y + desktop.Top));
         if (SelectedRegion.Width > 0 && SelectedRegion.Height > 0) Finish(true);
       } else { anchor = point; dragging = true; Capture = true; }
     }
     void Release(Point point) {
-      if (finished || windowMode || !dragging) return;
-      dragging = false; Capture = false; UpdateRegion(point);
-      if (SelectedRegion.Width >= 2 && SelectedRegion.Height >= 2) Finish(true);
+      if (finished || windowMode || !dragging || waitingEnd) return;
+      Capture = false; UpdateRegion(point);
+      // A click fixes the start point; an actual drag still completes on release.
+      if (Math.Abs(point.X - anchor.X) >= SystemInformation.DragSize.Width / 2 ||
+          Math.Abs(point.Y - anchor.Y) >= SystemInformation.DragSize.Height / 2) {
+        if (SelectedRegion.Width >= 2 && SelectedRegion.Height >= 2) { Finish(true); return; }
+      }
+      waitingEnd = true;
+      Invalidate();
     }
     void PollInput(object sender, EventArgs e) {
       // Read the physical buttons too: foreground activation must never consume a selection click.
@@ -147,6 +163,7 @@ public static class ToolboxCapture {
     }
     public void ProcessPointer(Point point, bool left) {
       if (finished) return;
+      TrackPointer(point);
       if (windowMode) UpdateWindow(new Point(point.X + desktop.Left, point.Y + desktop.Top));
       else if (dragging) { UpdateRegion(point); Invalidate(); }
       if (left && !previousLeft) Press(point);
@@ -155,8 +172,60 @@ public static class ToolboxCapture {
     }
     protected override void OnMouseMove(MouseEventArgs e) {
       base.OnMouseMove(e);
+      TrackPointer(e.Location);
       if (windowMode) UpdateWindow();
       else if (dragging) { UpdateRegion(e.Location); Invalidate(); }
+    }
+    void TrackPointer(Point point) {
+      if (pointer == point) return;
+      pointer = point;
+      if (!windowMode) Invalidate();
+    }
+    public static Rectangle HintBounds(Rectangle monitor, Point point, Size size, int margin) {
+      return new Rectangle(
+        point.X < monitor.Left + monitor.Width / 2 ? monitor.Right - size.Width - margin : monitor.Left + margin,
+        point.Y < monitor.Top + monitor.Height / 2 ? monitor.Bottom - size.Height - margin : monitor.Top + margin,
+        size.Width, size.Height);
+    }
+    void DrawHint(Graphics graphics) {
+      var absolute = new Point(pointer.X + desktop.Left, pointer.Y + desktop.Top);
+      var monitor = Rectangle.Intersect(Screen.FromPoint(absolute).Bounds, desktop);
+      monitor.Offset(-desktop.Left, -desktop.Top);
+      if (monitor.Width < 1 || monitor.Height < 1) monitor = ClientRectangle;
+      int margin = Math.Min(16, Math.Min(monitor.Width, monitor.Height) / 8);
+      var panel = HintBounds(monitor, pointer, new Size(Math.Min(336, monitor.Width - margin * 2), Math.Min(258, monitor.Height - margin * 2)), margin);
+      var saved = graphics.Save();
+      graphics.SetClip(panel);
+      using (var brush = new SolidBrush(Color.FromArgb(245, 30, 30, 42))) graphics.FillRectangle(brush, panel);
+      using (var pen = new Pen(Color.FromArgb(144, 126, 255))) graphics.DrawRectangle(pen, panel.X, panel.Y, panel.Width - 1, panel.Height - 1);
+      using (var font = new Font(SystemFonts.MessageBoxFont.FontFamily, 10, FontStyle.Regular, GraphicsUnit.Point)) {
+        int x = panel.X + 14, y = panel.Y + 12;
+        graphics.DrawString("\u9f20\u6807\u5750\u6807  X: " + absolute.X + "   Y: " + absolute.Y, font, Brushes.White, x, y);
+        int px = Math.Max(0, Math.Min(background.Width - 1, pointer.X));
+        int py = Math.Max(0, Math.Min(background.Height - 1, pointer.Y));
+        var zoom = new Rectangle(x, y + 30, 152, 152);
+        // Keep the sampled pixel centered, including at desktop edges. Empty pixels stay dark.
+        var zoomState = graphics.Save();
+        graphics.SetClip(zoom, System.Drawing.Drawing2D.CombineMode.Intersect);
+        graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
+        graphics.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.Half;
+        var source = Rectangle.Intersect(new Rectangle(px - 9, py - 9, 19, 19), new Rectangle(Point.Empty, background.Size));
+        var destination = new Rectangle(zoom.X + (source.X - px + 9) * 8, zoom.Y + (source.Y - py + 9) * 8, source.Width * 8, source.Height * 8);
+        graphics.DrawImage(background, destination, source, GraphicsUnit.Pixel);
+        graphics.Restore(zoomState);
+        using (var pen = new Pen(Color.FromArgb(180, 144, 126, 255))) {
+          graphics.DrawLine(pen, zoom.X + 76, zoom.Top, zoom.X + 76, zoom.Bottom);
+          graphics.DrawLine(pen, zoom.Left, zoom.Y + 76, zoom.Right, zoom.Y + 76);
+          graphics.DrawRectangle(pen, zoom.X + 72, zoom.Y + 72, 8, 8);
+          graphics.DrawRectangle(pen, zoom);
+        }
+        var color = background.GetPixel(px, py);
+        graphics.DrawString("8\u00d7 \u653e\u5927\n\nRGB\n" + color.R + ", " + color.G + ", " + color.B + "\n\n#" + color.R.ToString("X2") + color.G.ToString("X2") + color.B.ToString("X2"), font, Brushes.White, x + 166, y + 30);
+        string status = dragging ? "\u9009\u533a  " + SelectedRegion.Width + " \u00d7 " + SelectedRegion.Height + " px \u00b7 " + (waitingEnd ? "\u5355\u51fb\u786e\u5b9a\u7ec8\u70b9" : "\u677e\u5f00\u622a\u56fe") : "\u5355\u51fb\u8d77\u70b9\u548c\u7ec8\u70b9\uff0c\u6216\u6309\u4f4f\u62d6\u52a8";
+        graphics.DrawString(status, font, Brushes.White, x, y + 192);
+        graphics.DrawString("Esc / \u53f3\u952e\uff1a\u53d6\u6d88", font, Brushes.LightGray, x, y + 216);
+      }
+      graphics.Restore(saved);
     }
     void UpdateRegion(Point end) {
       end.X = Math.Max(0, Math.Min(ClientSize.Width, end.X));
@@ -191,8 +260,11 @@ public static class ToolboxCapture {
         using (var pen = new Pen(Color.FromArgb(144, 126, 255), 3)) e.Graphics.DrawRectangle(pen, visible.X + 1, visible.Y + 1, Math.Max(0, visible.Width - 3), Math.Max(0, visible.Height - 3));
       }
       var text = windowMode ? "\u79fb\u52a8\u9f20\u6807\u9ad8\u4eae\u7a97\u53e3 \u00b7 \u5355\u51fb\u622a\u56fe \u00b7 Esc \u6216\u53f3\u952e\u53d6\u6d88" : "\u6309\u4f4f\u9f20\u6807\u62d6\u52a8\u6846\u9009 \u00b7 \u677e\u5f00\u622a\u56fe \u00b7 Esc \u6216\u53f3\u952e\u53d6\u6d88";
-      using (var shade = new SolidBrush(Color.FromArgb(220, 35, 34, 48))) e.Graphics.FillRectangle(shade, 20, 20, 510, 36);
-      e.Graphics.DrawString(text, SystemFonts.MessageBoxFont, Brushes.White, 32, 30);
+      if (!windowMode) DrawHint(e.Graphics);
+      else {
+        using (var shade = new SolidBrush(Color.FromArgb(220, 35, 34, 48))) e.Graphics.FillRectangle(shade, 20, 20, 510, 36);
+        e.Graphics.DrawString(text, SystemFonts.MessageBoxFont, Brushes.White, 32, 30);
+      }
     }
   }
   public static string Select(bool windowMode, bool cursor) {
@@ -233,6 +305,14 @@ public static class ToolboxCapture {
   }
   public static string VerifySelectionFlow() {
     EnableDpi();
+    var monitor = new Rectangle(-1200, -200, 1200, 800);
+    var hintSize = new Size(336, 258);
+    var points = new Point[] { new Point(-1100, -100), new Point(-100, -100), new Point(-1100, 500), new Point(-100, 500) };
+    var corners = new Point[] { new Point(-352, 326), new Point(-1184, 326), new Point(-352, -184), new Point(-1184, -184) };
+    for (int i = 0; i < points.Length; i++) {
+      var hint = Selector.HintBounds(monitor, points[i], hintSize, 16);
+      if (hint.Location != corners[i] || !monitor.Contains(hint)) throw new Exception("Opposite-quadrant hint regression");
+    }
     using (var background = new Bitmap(200, 120)) {
       background.SetPixel(30, 20, Color.Red);
       var bounds = new Rectangle(-100, -50, 200, 120);
@@ -244,6 +324,15 @@ public static class ToolboxCapture {
         if (region.DialogResult != DialogResult.OK || region.SelectedRegion != new Rectangle(10, 12, 70, 53)) throw new Exception("First-drag regression");
       }
       var targets = new Rectangle[] { new Rectangle(-80, -40, 40, 40), new Rectangle(-100, -50, 140, 100) };
+      using (var clicks = new Selector(background, false, bounds, new Rectangle[0])) {
+        clicks.ProcessPointer(new Point(80, 65), true);
+        clicks.ProcessPointer(new Point(80, 65), false);
+        if (clicks.DialogResult == DialogResult.OK) throw new Exception("Start click completed prematurely");
+        clicks.ProcessPointer(new Point(10, 12), false);
+        if (clicks.SelectedRegion != new Rectangle(10, 12, 70, 53)) throw new Exception("Released-pointer preview regression");
+        clicks.ProcessPointer(new Point(10, 12), true);
+        if (clicks.DialogResult != DialogResult.OK) throw new Exception("Second-click selection regression");
+      }
       using (var window = new Selector(background, true, bounds, targets)) {
         window.ProcessPointer(new Point(30, 20), false);
         if (window.SelectedRegion != new Rectangle(20, 10, 40, 40)) throw new Exception("Frozen window hit-test regression");
