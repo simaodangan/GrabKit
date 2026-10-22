@@ -50,6 +50,7 @@ public static class ToolboxCapture {
   [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr window, IntPtr after, int x, int y, int width, int height, uint flags);
   [DllImport("user32.dll")] static extern IntPtr GetShellWindow();
   [DllImport("user32.dll")] static extern short GetAsyncKeyState(int key);
+  [DllImport("dwmapi.dll")] static extern int DwmFlush();
   [DllImport("dwmapi.dll")] static extern int DwmGetWindowAttribute(IntPtr window, int attribute, out int value, int size);
   [DllImport("dwmapi.dll")] static extern int DwmGetWindowAttribute(IntPtr window, int attribute, out RECT value, int size);
   static Rectangle WindowBounds(IntPtr window) {
@@ -154,7 +155,7 @@ public static class ToolboxCapture {
     void PollInput(object sender, EventArgs e) {
       // Read the physical buttons too: foreground activation must never consume a selection click.
       if (finished) return;
-      if ((GetAsyncKeyState(27) & 0x8000) != 0 || (GetAsyncKeyState(2) & 0x8000) != 0) { Finish(false); return; }
+      if ((GetAsyncKeyState(27) & 0x8000) != 0 || (GetAsyncKeyState(46) & 0x8000) != 0 || (GetAsyncKeyState(2) & 0x8000) != 0) { Finish(false); return; }
       var point = PointToClient(Control.MousePosition);
       bool left = (GetAsyncKeyState(1) & 0x8000) != 0;
       ProcessPointer(point, left);
@@ -288,14 +289,19 @@ public static class ToolboxCapture {
     return Select(windowMode, cursor, 4);
   }
   public static string Select(bool windowMode, bool cursor, int magnification) {
+    return Select(windowMode, cursor, magnification, false);
+  }
+  public static string Select(bool windowMode, bool cursor, int magnification, bool syncDesktop) {
     if (magnification < 2 || magnification > 8) throw new ArgumentException("Invalid magnification");
     LastBounds = null;
     EnableDpi();
+    // Synchronize composition after the toolbox hides instead of always sleeping 180 ms.
+    // If composition is unavailable, retain the previous settling delay as a fallback.
+    if (syncDesktop && DwmFlush() < 0) System.Threading.Thread.Sleep(180);
     var bounds = SystemInformation.VirtualScreen;
     var windows = SnapshotWindows();
-    var encoded = Capture("screen", 0, bounds.X, bounds.Y, bounds.Width, bounds.Height, cursor);
-    using (var stream = new MemoryStream(Convert.FromBase64String(encoded)))
-    using (var background = new Bitmap(stream))
+    // Keep the frozen desktop in memory; encode only the final selected region.
+    using (var background = CaptureBitmap(bounds.X, bounds.Y, bounds.Width, bounds.Height, cursor))
     using (var selector = new Selector(background, windowMode, bounds, windows)) {
       selector.Magnification = magnification;
       if (selector.ShowDialog() != DialogResult.OK) return "CANCEL";
@@ -419,8 +425,13 @@ public static class ToolboxCapture {
       if (!GetWindowRect(new IntPtr(target), out rect)) throw new Exception("Cannot find target window");
       x = rect.left; y = rect.top; width = rect.right - x; height = rect.bottom - y;
     }
+    using (var bitmap = CaptureBitmap(x, y, width, height, cursor))
+    using (var output = new MemoryStream()) { bitmap.Save(output, ImageFormat.Png); return Convert.ToBase64String(output.ToArray()); }
+  }
+  static Bitmap CaptureBitmap(int x, int y, int width, int height, bool cursor) {
     if (width <= 0 || height <= 0) throw new Exception("Invalid capture size");
-    using (var bitmap = new Bitmap(width, height, PixelFormat.Format32bppRgb)) {
+    var bitmap = new Bitmap(width, height, PixelFormat.Format32bppRgb);
+    try {
       using (var graphics = Graphics.FromImage(bitmap)) {
         graphics.CopyFromScreen(x, y, 0, 0, new Size(width, height), CopyPixelOperation.SourceCopy);
         if (cursor) {
@@ -435,8 +446,8 @@ public static class ToolboxCapture {
           }
         }
       }
-      using (var output = new MemoryStream()) { bitmap.Save(output, ImageFormat.Png); return Convert.ToBase64String(output.ToArray()); }
-    }
+      return bitmap;
+    } catch { bitmap.Dispose(); throw; }
   }
 }
 '@
@@ -460,7 +471,7 @@ if ($Server) {
       } elseif (($request.mode -eq 'screen' -or $request.mode -eq 'window') -and $request.cursor -is [bool]) {
         $zoom = 4
         if ($null -ne $request.magnification) { $zoom = [int]$request.magnification }
-        $image = [ToolboxCapture]::Select(($request.mode -eq 'window'), $request.cursor, $zoom)
+        $image = [ToolboxCapture]::Select(($request.mode -eq 'window'), $request.cursor, $zoom, ($request.syncDesktop -eq $true))
       } else { throw 'Invalid selection command' }
       [Console]::WriteLine((ConvertTo-Json -Compress @{ type = 'result'; image = $image; bounds = [ToolboxCapture]::LastBounds }))
     } catch {

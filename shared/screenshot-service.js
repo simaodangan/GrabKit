@@ -185,17 +185,22 @@ function create(image, bounds, selection = false, project = null) {
       !selection &&
       input.type === 'keyDown' &&
       (input.control || input.meta) &&
-      input.key.toLowerCase() === 'c'
+      ['c', 's'].includes(input.key.toLowerCase())
     ) {
       event.preventDefault();
-      void copyImage(state);
+      if (input.key.toLowerCase() === 's') {
+        if (!input.isAutoRepeat) void saveImage(state);
+      } else void copyImage(state);
     }
   });
   window.once('ready-to-show', () => {
+    // Raise independently of the minimized toolbox, then restore normal pinning.
+    window.setAlwaysOnTop(true);
     window.show();
     // Reapply after showing: Windows may otherwise relocate a newly created window.
     if (bounds && !selection) window.setContentBounds(initialBounds);
     window.focus();
+    if (!selection) window.setAlwaysOnTop(false);
     refreshViewport();
     if (!selection && process.platform === 'win32' && typeof window.getNativeWindowHandle === 'function') {
       nativeMouse.watch(window, action => {
@@ -369,10 +374,10 @@ function popup(state) {
       }
     },
     { type: 'separator' },
-    { label: '保存 PNG 图片…', click: () => saveImage(state) },
+    { label: '保存 PNG 图片…', accelerator: 'CommandOrControl+S', click: () => saveImage(state) },
     { label: '保存源文件…', click: () => saveProject(state) },
     { type: 'separator' },
-    { label: '关闭图片', click: () => window.close() },
+    { label: '关闭图片\tDelete', click: () => window.close() },
     {
       label: '关闭所有图片…',
       click: () => {
@@ -536,7 +541,7 @@ ipcMain.handle('shot:editor-command', (event, value) => {
   const properties = ['width','size','stroke','fill','use-stroke','use-fill'];
   if (!(value.type === 'tool' && tools.includes(value.value)) &&
       !(value.type === 'property' && properties.includes(value.name) && ['string','boolean'].includes(typeof value.value)) &&
-      !['delete','done'].includes(value.type)) throw new Error('编辑指令无效');
+      !['delete','done','escape'].includes(value.type)) throw new Error('编辑指令无效');
   state.window.webContents.send('shot:editor-command', value);
   if (value.type === 'tool') state.window.focus();
 });
@@ -609,9 +614,8 @@ async function selectOnDesktop(requester, kind, settings) {
     if (settings.hideWindow && requester?.isVisible()) {
       requester.hide();
       hidden = true;
-      await new Promise((resolve) => setTimeout(resolve, 180));
     }
-    const result = await desktopPicker.select(kind, settings.includeCursor, settings.magnification);
+    const result = await desktopPicker.select(kind, settings.includeCursor, settings.magnification, hidden);
     const output = typeof result === 'string' ? result : result.image;
     const bounds = typeof result === 'object' ? result.bounds : null;
     if (output === 'CANCEL') return false;

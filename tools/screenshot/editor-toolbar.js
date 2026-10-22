@@ -30,6 +30,12 @@
     }
     window.updateEditorColors(toolbar);
   }
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      if (!event.repeat) window.shot.editorCommand({ type:'escape' });
+    }
+  });
   let lastSize='';
   function fit() {
     const r=toolbar.getBoundingClientRect();

@@ -4,6 +4,8 @@ const path=require('node:path');
 app.disableHardwareAcceleration();
 
 let win;
+let canceled = 0;
+ipcMain.handle('shot:cancel', () => { canceled++; });
 ipcMain.handle('shot:ready',()=>({dataUrl:nativeImage.createFromBitmap(Buffer.alloc(400*300*4,255),{width:400,height:300}).toDataURL(),selection:false,border:3}));
 ipcMain.handle('shot:editing',(_e,value)=>win.webContents.send('shot:editing',value));
 ipcMain.handle('shot:editor-state',()=>{});
@@ -57,9 +59,19 @@ app.whenReady().then(async()=>{
  if(await window.screenshotEditor.exportPNG()!==baseline)throw new Error('清空工程失败');
  window.screenshotEditor.importProject(project);
  if(await window.screenshotEditor.exportPNG()!==moved)throw new Error('源文件恢复后 PNG 不一致');
+ document.querySelector('[data-tool=rect]').click();
+ const esc=()=>document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+ esc();
+ if(document.querySelector('[data-tool=select]').getAttribute('aria-pressed')!=='true' || !document.body.classList.contains('editing'))throw new Error('Esc must return to selection first');
+ esc();await new Promise(r=>setTimeout(r,30));
+ if(document.body.classList.contains('editing'))throw new Error('Second Esc must exit editing');
+ text.blur();document.body.focus();
+ document.dispatchEvent(new KeyboardEvent('keydown',{key:'Delete',bubbles:true}));
+ await new Promise(r=>setTimeout(r,30));
  const output=new Image();output.src=moved;await output.decode();
  return {drawn:drawn!==baseline,text:withText!==drawn,textFocused,textBackground,fillDisabled,autoSelect,arrowCursor:getComputedStyle(c).cursor==='default',deleted:deleted===drawn,locked:locked===deleted,moved:moved!==locked,width:output.naturalWidth,height:output.naturalHeight};
  })()`);
+ assert.equal(canceled,1,'Delete closes an unedited screenshot');
  assert.deepEqual(result,{drawn:true,text:true,textFocused:true,textBackground:true,fillDisabled:true,autoSelect:true,arrowCursor:true,deleted:true,locked:true,moved:true,width:400,height:300});
  console.log('编辑验证通过：六种绘图、文字及字号、删除、退出锁定、重新选择移动、原尺寸 PNG 合成');app.exit(0);
  }catch(error){console.error(error);app.exit(1);}

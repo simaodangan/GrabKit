@@ -98,6 +98,9 @@ class Window extends EventEmitter {
   show() {
     this.visible = true;
   }
+  setAlwaysOnTop(value) {
+    (this.topmostChanges ||= []).push(value);
+  }
   focus() {}
   close() {
     this.emit('closed');
@@ -258,6 +261,22 @@ vm.runInNewContext(fs.readFileSync(require.resolve('../shared/screenshot-service
     return menu;
   }
   let items = openMenu();
+  assert.ok(items.some(item => item.label === '关闭图片\tDelete'), '关闭菜单完整显示 Delete');
+  assert.equal(items.find(item => item.label === '保存 PNG 图片…').accelerator, 'CommandOrControl+S');
+  let pngSaves = 0;
+  electron.dialog.showSaveDialog = async (_window, options) => {
+    pngSaves++;
+    assert.match(options.defaultPath, /\.png$/);
+    return { canceled:true };
+  };
+  let savePrevented = false;
+  picture.webContents.emit('before-input-event', { preventDefault() { savePrevented = true; } },
+    { type:'keyDown', key:'s', control:true });
+  assert.equal(savePrevented, true);
+  assert.equal(pngSaves, 1, 'Ctrl+S 打开 PNG 保存对话框');
+  picture.webContents.emit('before-input-event', { preventDefault() {} },
+    { type:'keyDown', key:'s', control:true, isAutoRepeat:true });
+  assert.equal(pngSaves, 1, '长按保存快捷键不重复打开对话框');
   assert.deepEqual(Array.from(items, (item) => item.label || item.type), [
     '窗口置顶',
     '编辑图片',
@@ -271,7 +290,7 @@ vm.runInNewContext(fs.readFileSync(require.resolve('../shared/screenshot-service
     '保存 PNG 图片…',
     '保存源文件…',
     'separator',
-    '关闭图片',
+    '关闭图片\tDelete',
     '关闭所有图片…'
   ]);
   items.find((item) => item.label === '透明度…').click();
@@ -377,6 +396,7 @@ vm.runInNewContext(fs.readFileSync(require.resolve('../shared/screenshot-service
   original.options.x = 900;
   original.options.y = 900;
   original.emit('ready-to-show');
+  assert.deepEqual(original.topmostChanges, [true, false], '新贴图先提升层级，再恢复普通窗口');
   assert.equal(original.options.x, -503);
   assert.equal(original.options.y, 117);
   handlers.get('shot:editing')({ sender: original.webContents }, true);

@@ -25,6 +25,7 @@
     if (command.type === 'tool') toolbar.querySelector('[data-tool="'+command.value+'"]').click();
     else if (command.type === 'delete') remove();
     else if (command.type === 'done') window.shot.editing(false);
+    else if (command.type === 'escape') escapeEditing();
     else if (command.type === 'property') {
       const input=field(command.name);
       if (input) { if(input.type==='checkbox')input.checked=command.value;else input.value=command.value; input.dispatchEvent(new Event('input')); }
@@ -177,7 +178,22 @@
     if(s?.type==='text'){select(s);editText(s);}
     else if(!s)window.dispatchEvent(new Event('screenshot:remind'));
   });
-  document.addEventListener('keydown',e => {if(editing && !['INPUT','TEXTAREA'].includes(document.activeElement.tagName) && ['Delete','Backspace'].includes(e.key)){e.preventDefault();remove();}});
+  function escapeEditing() {
+    const wasSelect = tool === 'select';
+    finishText();endGesture();
+    if (wasSelect) window.shot.editing(false);
+    else setTool('select');
+  }
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && editing) {
+      e.preventDefault();
+      if (!e.repeat) escapeEditing();
+      return;
+    }
+    if (['INPUT','TEXTAREA'].includes(document.activeElement.tagName)) return;
+    if (e.key === 'Delete' && !editing) { e.preventDefault();window.shot.cancel(); }
+    else if (editing && ['Delete','Backspace'].includes(e.key)) { e.preventDefault();remove(); }
+  });
   window.shot.onEditing(value => {finishText();endGesture();editing=value;document.body.classList.toggle('editing',value);select(null);});
   image.addEventListener('load',draw);new ResizeObserver(draw).observe(image);
   window.screenshotEditor={
