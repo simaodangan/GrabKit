@@ -62,3 +62,25 @@ document.querySelector('#clear-config').onclick = async (event) => {
   }
 };
 loadStartup();
+
+const screenshotResident = document.querySelector('#screenshot-resident');
+function syncResident(state) {
+  screenshotResident.checked = state.enabled;
+  screenshotResident.disabled = !state.supported;
+  if (!state.supported) document.querySelector('#screenshot-hint').textContent = '托盘不可用，无法开启后台常驻，请重新启动应用后重试。';
+}
+window.desktop.settings.onScreenshotResidentChanged(syncResident);
+window.desktop.settings.getScreenshotResident().then(syncResident).catch(() => {
+  status.textContent = '读取截图常驻设置失败，请重新打开设置。';
+});
+screenshotResident.onchange = async () => {
+  const previous = !screenshotResident.checked;
+  screenshotResident.disabled = true;
+  try {
+    syncResident(await window.desktop.settings.setScreenshotResident(screenshotResident.checked));
+    status.textContent = screenshotResident.checked ? '已开启截图工具后台常驻。' : '已关闭截图工具后台常驻。';
+  } catch {
+    screenshotResident.checked = previous;
+    status.textContent = '修改截图常驻设置失败，请重试。';
+  } finally { screenshotResident.disabled = false; }
+};

@@ -7,21 +7,27 @@ const {
   Menu,
   dialog,
   globalShortcut,
-  nativeImage
+  nativeImage,
+  nativeTheme
 } = require('electron');
-const clipboard = require('./clipboard');
+const clipboard = require('../../../shared/clipboard');
 const { execFile } = require('node:child_process');
 const { promisify } = require('node:util');
 const execute = promisify(execFile);
 const path = require('node:path');
 const fs = require('node:fs/promises');
 const projectFile = require('./screenshot-project');
-const { windows } = require('./window-service');
+const { windows } = require('../../../shared/window-service');
+const { setTaskbarGroup } = require('../../../shared/taskbar-group');
 const sessions = new Map();
 const opacityPanels = new Map();
 const editorPanels = new Map();
 const desktopPicker = require('./desktop-picker');
 const nativeMouse = require('./screenshot-mouse');
+const ocr = require('./screenshot-ocr');
+const { placeOcrPanel } = require('./screenshot-layout');
+const { decodeImage } = require('./screenshot-image');
+const ocrPanels = new Map();
 let capturing = false;
 let preferences = { includeCursor: true, hideWindow: true, magnification: 4 };
 function options(value) {
@@ -88,7 +94,7 @@ function screenshotFilename(date) {
   const pad = (value) => String(value).padStart(2, '0');
   return `截图-${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}-${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}.png`;
 }
-function create(image, bounds, selection = false, project = null) {
+function create(image, bounds, selection = false, project = null, fitToScreen = false) {
   const border = selection ? 0 : 3;
   const point = bounds || screen.getCursorScreenPoint();
   const initialBounds = selection
@@ -97,8 +103,17 @@ function create(image, bounds, selection = false, project = null) {
         ...(bounds ? { x: bounds.x - border, y: bounds.y - border } : {}),
         ...originalSize(image, point, border)
       };
+  if (fitToScreen && !selection) {
+    const area = screen.getDisplayNearestPoint(point).workArea;
+    const ratio = Math.min(1,(area.width-32-border*2)/(initialBounds.width-border*2),
+      (area.height-32-border*2)/(initialBounds.height-border*2));
+    initialBounds.width = Math.max(border*2+1,Math.round((initialBounds.width-border*2)*ratio)+border*2);
+    initialBounds.height = Math.max(border*2+1,Math.round((initialBounds.height-border*2)*ratio)+border*2);
+    initialBounds.x = Math.round(area.x+(area.width-initialBounds.width)/2);
+    initialBounds.y = Math.round(area.y+(area.height-initialBounds.height)/2);
+  }
   const window = new BrowserWindow({
-    icon: path.join(__dirname, 'app-icon.ico'),
+    icon: path.join(__dirname, '../icon.png'),
     ...initialBounds,
     minWidth: 1,
     minHeight: 1,
@@ -123,6 +138,7 @@ function create(image, bounds, selection = false, project = null) {
       nodeIntegration: false
     }
   });
+  setTaskbarGroup(window, 'screenshot');
   const state = {
     window,
     image,
@@ -170,6 +186,8 @@ function create(image, bounds, selection = false, project = null) {
   window.webContents.on('will-navigate', (event) => event.preventDefault());
   window.on('close', () => {
     state.closing = true;
+    state.ocrAbort?.abort();
+    if (state.ocrPanel && !state.ocrPanel.isDestroyed()) state.ocrPanel.close();
     state.openMenu?.closePopup(window);
   });
   window.on('closed', () => sessions.delete(sessionId));
@@ -187,6 +205,7 @@ function create(image, bounds, selection = false, project = null) {
       (input.control || input.meta) &&
       ['c', 's'].includes(input.key.toLowerCase())
     ) {
+      if (input.key.toLowerCase() === 'c' && state.ocrResult) return;
       event.preventDefault();
       if (input.key.toLowerCase() === 's') {
         if (!input.isAutoRepeat) void saveImage(state);
@@ -211,7 +230,7 @@ function create(image, bounds, selection = false, project = null) {
     }
   });
   window
-    .loadFile(path.join(__dirname, '../tools/screenshot/picture.html'))
+    .loadFile(path.join(__dirname, '../picture.html'))
     .catch(() => window.close());
   return window;
 }
@@ -302,7 +321,8 @@ function openOpacity(state) {
     state.window.removeListener('closed', close);
   });
   // Show only after the page reports its natural content height.
-  panel.loadFile(path.join(__dirname, '../tools/screenshot/opacity.html')).catch(close);
+  setTaskbarGroup(panel, 'screenshot');
+  panel.loadFile(path.join(__dirname, '../opacity.html')).catch(close);
 }
 async function copyImage(state) {
   try {
@@ -322,6 +342,7 @@ async function copyImage(state) {
 function popup(state) {
   const { window } = state;
   if (state.openMenu || window.isDestroyed()) return;
+  const icon = name => path.join(__dirname, 'menu-icons', nativeTheme?.shouldUseDarkColors ? 'dark' : 'light', `${name}.png`);
   const menu = Menu.buildFromTemplate([
     {
       label: '窗口置顶',
@@ -329,37 +350,32 @@ function popup(state) {
       checked: window.isAlwaysOnTop(),
       click: (item) => {
         window.setAlwaysOnTop(item.checked);
-        for (const panel of [state.editorPanel, state.opacityPanel])
+        for (const panel of [state.editorPanel, state.opacityPanel, state.ocrPanel])
           if (panel && !panel.isDestroyed()) panel.setAlwaysOnTop(item.checked);
       }
     },
-    { label: state.editing ? '退出编辑' : '编辑图片', click: () => setEditing(state, !state.editing) },
+    { label: state.editing ? '退出编辑' : '编辑图片', enabled: !state.ocrBusy, click: () => {
+      clearOcr(state);
+      setEditing(state, !state.editing);
+    } },
+    { label: state.ocrBusy ? '正在识别文字…' : '提取文字(OCR)', enabled: !state.ocrBusy, click: () => startOcr(state) },
     { type: 'separator' },
-    { label: '复制图片', accelerator: 'CommandOrControl+C', click: () => copyImage(state) },
+    ...(state.ocrResult ? [{ label: '复制选中文字', role: 'copy', icon: icon('copy') }] : []),
+    { label: '复制图片', icon: icon('copy'), accelerator: state.ocrResult ? undefined : 'CommandOrControl+C', click: () => copyImage(state) },
     { type: 'separator' },
     { label: '透明度…', click: () => openOpacity(state) },
     {
-      label: '边框粗细',
-      submenu: [
-        ['无边框', 0],
-        ['较细', 2],
-        ['中等', 3],
-        ['较粗', 4]
-      ].map(([label, value]) => ({
-        label,
-        type: 'radio',
-        checked: state.border === value,
-        click: () => {
-          Promise.resolve(setBorder(state, value)).catch((error) => {
-            if (!window.isDestroyed())
-              dialog.showMessageBox(window, {
-                type: 'error',
-                message: '边框调整失败',
-                detail: error.message
-              });
+      label: '显示边框',
+      type: 'checkbox',
+      checked: state.border > 0,
+      click: (item) => Promise.resolve(setBorder(state, item.checked ? 3 : 0)).catch((error) => {
+        if (!window.isDestroyed())
+          dialog.showMessageBox(window, {
+            type: 'error',
+            message: '边框调整失败',
+            detail: error.message
           });
-        }
-      }))
+      })
     },
     {
       label: '重置尺寸（100%）',
@@ -374,12 +390,13 @@ function popup(state) {
       }
     },
     { type: 'separator' },
-    { label: '保存 PNG 图片…', accelerator: 'CommandOrControl+S', click: () => saveImage(state) },
-    { label: '保存源文件…', click: () => saveProject(state) },
+    { label: '保存为图片', icon: icon('save'), accelerator: 'CommandOrControl+S', click: () => saveImage(state) },
+    { label: '保存为可编辑文件', icon: icon('save-project'), click: () => saveProject(state) },
     { type: 'separator' },
-    { label: '关闭图片\tDelete', click: () => window.close() },
+    { label: '关闭图片', icon: icon('close'), accelerator: 'Delete', registerAccelerator: false, click: () => window.close() },
     {
       label: '关闭所有图片…',
+      icon: icon('close-all'),
       click: () => {
         const result = dialog.showMessageBoxSync(window, {
           type: 'question',
@@ -404,14 +421,89 @@ function popup(state) {
     }
   });
 }
+function clearOcr(state) {
+  state.ocrResult = null;
+  if (!state.closing && !state.window.isDestroyed() && !state.window.webContents.isDestroyed())
+    state.window.webContents.send('shot:ocr', { status: 'off' });
+  if (state.ocrPanel && !state.ocrPanel.isDestroyed()) state.ocrPanel.close();
+}
+async function startOcr(state) {
+  if (state.ocrBusy || state.window.isDestroyed()) return;
+  clearOcr(state);
+  setEditing(state, false);
+  state.ocrBusy = true;
+  state.ocrAbort = new AbortController();
+  state.window.webContents.send('shot:ocr', { status: 'busy' });
+  try {
+    const image = await renderedImage(state);
+    if (state.closing) return;
+    const blocks = await ocr.recognize(image.toPNG(), image.getSize(), state.ocrAbort.signal);
+    if (state.closing) return;
+    state.ocrResult = blocks;
+    state.window.webContents.send('shot:ocr', { status: 'done', blocks });
+    const panel = new BrowserWindow({ width: 300, height: 120, minWidth: 200, minHeight: 80, show: false,
+      parent: state.window, title: '识别文字', autoHideMenuBar: true,
+      icon: path.join(__dirname, '../icon.png'),
+      alwaysOnTop: state.window.isAlwaysOnTop(),
+      webPreferences: { preload: path.join(__dirname, 'screenshot-preload.js'), contextIsolation: true, sandbox: true, nodeIntegration: false } });
+    setTaskbarGroup(panel, 'screenshot');
+    state.ocrPanel = panel;
+    const id = panel.webContents.id;
+    ocrPanels.set(id, state);
+    panel.setMenu(null);
+    panel.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    panel.webContents.on('will-navigate', event => event.preventDefault());
+    panel.on('closed', () => {
+      ocrPanels.delete(id);
+      if (state.ocrPanel === panel) { state.ocrPanel = null; clearOcr(state); }
+    });
+    await panel.loadFile(path.join(__dirname, '../ocr.html'));
+  } catch (error) {
+    if (!state.closing && !state.window.isDestroyed())
+      state.window.webContents.send('shot:ocr', { status: 'error', message: error.message });
+  } finally { state.ocrBusy = false; state.ocrAbort = null; }
+}
+ipcMain.handle('shot:ocr-ready', event => {
+  const state = ocrPanels.get(event.sender.id);
+  if (!state) throw new Error('未知文字窗口');
+  return state.ocrResult || [];
+});
+ipcMain.handle('shot:ocr-fit', (event, size) => {
+  const state = ocrPanels.get(event.sender.id);
+  if (!state || !size || !['width','height'].every(key=>Number.isFinite(size[key]) && size[key]>0 && size[key]<=100000))
+    throw new Error('文字窗口尺寸无效');
+  const panel = state.ocrPanel;
+  if (!panel || panel.isDestroyed() || state.window.isDestroyed()) return;
+  const image = state.window.getBounds();
+  const area = screen.getDisplayNearestPoint(image).workArea;
+  const bounds = panel.getBounds(), content = panel.getContentBounds();
+  const frame = {width:bounds.width-content.width,height:bounds.height-content.height};
+  const zoom = panel.webContents.getZoomFactor();
+  panel.setContentSize(Math.max(1,Math.min(Math.ceil(size.width*zoom),area.width-frame.width)),
+    Math.max(1,Math.min(Math.ceil(size.height*zoom),area.height-frame.height)));
+  const fitted = panel.getBounds();
+  const areas = screen.getAllDisplays().map(display=>display.workArea).filter(work=>work && work.width>=fitted.width && work.height>=fitted.height);
+  const position = placeOcrPanel(image, {width:fitted.width,height:fitted.height}, areas.length ? areas : [area]);
+  panel.setPosition(position.x,position.y);
+  panel.show(); panel.focus();
+});
 async function saveImage(state) {
   try {
     const result = await dialog.showSaveDialog(state.window, {
       defaultPath: state.filename,
-      filters: [{ name: 'PNG 图片', extensions: ['png'] }]
+      filters: [
+        { name: 'PNG 图片（无损）', extensions: ['png'] },
+        { name: 'JPEG 图片', extensions: ['jpg', 'jpeg'] }
+      ]
     });
-    if (!result.canceled && result.filePath)
-      await fs.writeFile(result.filePath, (await renderedImage(state)).toPNG());
+    if (result.canceled || !result.filePath) return;
+    const extension = path.extname(result.filePath).toLowerCase();
+    if (extension && !['.png', '.jpg', '.jpeg'].includes(extension))
+      throw new Error('请选择 PNG 或 JPEG 图片格式（.png、.jpg、.jpeg）');
+    const destination = extension ? result.filePath : result.filePath + '.png';
+    const image = await renderedImage(state);
+    const data = ['.jpg', '.jpeg'].includes(extension) ? image.toJPEG(95) : image.toPNG();
+    await fs.writeFile(destination, data);
   } catch (error) {
     if (!state.window.isDestroyed())
       dialog.showMessageBox(state.window, {
@@ -444,11 +536,25 @@ ipcMain.handle('shot:save', (event, format) => {
 });
 ipcMain.handle('shot:open-project', async event => {
   const requester = owner(event);
-  const result = await dialog.showOpenDialog(requester, { title:'打开 GrabKit 截图源文件', properties:['openFile'], filters:[{name:'GrabKit 截图工程 (*.zip.gkshot)',extensions:['gkshot']}] });
+  const result = await dialog.showOpenDialog(requester, { title:'打开图片或截图源文件', properties:['openFile'], filters:[
+    {name:'图片和截图源文件',extensions:['png','jpg','jpeg','bmp','webp','gif','gkshot']},
+    {name:'图片',extensions:['png','jpg','jpeg','bmp','webp','gif']},
+    {name:'GrabKit 截图工程 (*.zip.gkshot)',extensions:['gkshot']}
+  ] });
   if (result.canceled || !result.filePaths.length) return false;
   const filename = result.filePaths[0];
-  if ((await fs.stat(filename)).size > projectFile.MAX) throw new Error('源文件过大');
-  const { project, image:buffer } = projectFile.decode(await fs.readFile(filename));
+  const extension = path.extname(filename).toLowerCase();
+  if (!['.gkshot','.png','.jpg','.jpeg','.bmp','.webp','.gif'].includes(extension)) throw new Error('不支持的文件格式');
+  if ((await fs.stat(filename)).size > projectFile.MAX) throw new Error('文件过大');
+  const data = await fs.readFile(filename);
+  if (extension !== '.gkshot') {
+    const image = await decodeImage(data,extension,{nativeImage,BrowserWindow});
+    const size = image.getSize();
+    if (size.width*size.height>64000000) throw new Error('图片尺寸过大');
+    create(image, undefined, false, null, true);
+    return true;
+  }
+  const { project, image:buffer } = projectFile.decode(data);
   const image = nativeImage.createFromBuffer(buffer);
   if (image.isEmpty()) throw new Error('源文件中的原图无效');
   create(image, undefined, false, project);
@@ -462,6 +568,8 @@ ipcMain.handle('shot:project-loaded', event => {
 function setEditing(state, editing) {
   // A child can close after the parent's WebContents dies but before its window does.
   if (state.closing || state.window.isDestroyed() || state.window.webContents.isDestroyed()) return;
+  if (editing && state.ocrBusy) return;
+  if (editing && state.ocrResult) clearOcr(state);
   state.editing = editing;
   if (editing) state.hasEdited = true;
   state.window.webContents.send('shot:editing', editing);
@@ -500,7 +608,8 @@ function openEditorPanel(state) {
     if (state.editing && !state.window.isDestroyed()) setEditing(state, false);
   });
   state.window.once('closed', () => { if(!panel.isDestroyed())panel.close(); });
-  panel.loadFile(path.join(__dirname, '../tools/screenshot/editor-toolbar.html')).catch(() => panel.close());
+  setTaskbarGroup(panel, 'screenshot');
+  panel.loadFile(path.join(__dirname, '../editor-toolbar.html')).catch(() => panel.close());
 }
 ipcMain.handle('shot:editor-fit', (event, size) => {
   const state = editorPanels.get(event.sender.id);

@@ -10,3 +10,4 @@ out/
 # Python cache from helper scripts
 __pycache__/
 *.pyc
+.ocr-build/

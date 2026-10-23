@@ -11,7 +11,7 @@ const child = spawn(
     '-ExecutionPolicy',
     'Bypass',
     '-File',
-    path.resolve(__dirname, '../shared/capture-windows.ps1'),
+    path.resolve(__dirname, '../tools/screenshot/backend/capture-windows.ps1'),
     '-Server'
   ],
   { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] }

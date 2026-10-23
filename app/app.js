@@ -252,7 +252,14 @@ function createToolCard(tool) {
   const open = document.createElement('button');
   open.className = 'tool-open';
   open.innerHTML = `<div class="tool-identity"><span class="tool-icon ${tool.color}" aria-hidden="true"></span><span class="tool-category"></span></div><div class="tool-info"><h3></h3><p></p></div>`;
-  open.querySelector('.tool-icon').textContent = tool.icon;
+  if (tool.iconUrl) {
+    const image = document.createElement('img');
+    image.src = tool.iconUrl;
+    image.alt = '';
+    image.width = 48;
+    image.height = 48;
+    open.querySelector('.tool-icon').append(image);
+  } else open.querySelector('.tool-icon').textContent = tool.icon;
   open.querySelector('.tool-category').textContent = tool.category;
   open.querySelector('h3').textContent = tool.name;
   open.querySelector('p').textContent = tool.description;

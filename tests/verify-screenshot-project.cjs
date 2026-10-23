@@ -1,5 +1,5 @@
 const assert = require('node:assert/strict');
-const { encode, decode } = require('../shared/screenshot-project');
+const { encode, decode } = require('../tools/screenshot/backend/screenshot-project');
 const image = Buffer.from('original PNG bytes');
 const shapes = ['text','pencil','arrow','rect','round','ellipse','line'].map(type => ({ type, points:[{x:1.5,y:2},{x:300,y:400}], x:1.5,y:2,width:3,size:24,stroke:'#ff3333',fill:null,text:'中文\n文字' }));
 const archive = encode(image, shapes);

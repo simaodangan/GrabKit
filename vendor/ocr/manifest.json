@@ -1,0 +1,42 @@
+{
+  "project": "hiroi-sora/RapidOCR-json",
+  "release": "v0.2.0",
+  "source": "https://github.com/hiroi-sora/RapidOCR-json/releases/tag/v0.2.0",
+  "provenance": "Restored byte-for-byte from the previous local dist/win-unpacked bundle, whose README names RapidOCR-json_v0.2.0.7z. Release archive was not downloaded again.",
+  "binary_banner": "RapidOCR-json v1.1.0",
+  "engine": "ONNX Runtime (C++)",
+  "model_family": "PP-OCRv3",
+  "models": {
+    "det": "models/ch_PP-OCRv3_det_infer.onnx",
+    "rec": "models/ch_PP-OCRv3_rec_infer.onnx",
+    "cls": "models/ch_ppocr_mobile_v2.0_cls_infer.onnx",
+    "dictionary": "models/ppocr_keys_v1.txt"
+  },
+  "arguments": [
+    "--ensureAscii=1",
+    "--numThread=2",
+    "--maxSideLen=2048"
+  ],
+  "files": {
+    "RapidOCR-json.exe": {
+      "bytes": 16849920,
+      "sha256": "616bd43a4672ee9fcf4d1ca607d7d9ec413b45d489482064d97e00a7efa9d76e"
+    },
+    "models/ch_PP-OCRv3_det_infer.onnx": {
+      "bytes": 2432880,
+      "sha256": "3439588c030faea393a54515f51e983d8e155b19a2e8aba7891934c1cf0de526"
+    },
+    "models/ch_PP-OCRv3_rec_infer.onnx": {
+      "bytes": 10690752,
+      "sha256": "897a3ededb38fee0dae2c1ccee38241f37df202c9509e3abca02e9217c5ee615"
+    },
+    "models/ch_ppocr_mobile_v2.0_cls_infer.onnx": {
+      "bytes": 585532,
+      "sha256": "e47acedf663230f8863ff1ab0e64dd2d82b838fceb5957146dab185a89d6215c"
+    },
+    "models/ppocr_keys_v1.txt": {
+      "bytes": 26249,
+      "sha256": "28b2362ad4ab2dc38769aa72feb535e3a9ddb3fd2a7585a05920e6393b1dc7f7"
+    }
+  }
+}

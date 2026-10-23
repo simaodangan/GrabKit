@@ -8,7 +8,7 @@ ipcMain.handle('shot:ready', event => ({ dataUrl: nativeImage.createFromBitmap(B
 let submenuCalls = 0;
 app.whenReady().then(async () => {
   try {
-    const picture = new BrowserWindow({ width: 300, height: 200, frame: false, transparent: false, backgroundColor: '#7764d8', useContentSize: true, thickFrame: false, roundedCorners: false, show: false, webPreferences: { offscreen: true, preload: path.resolve(__dirname, '../shared/screenshot-preload.js'), contextIsolation: true, sandbox: true } });
+    const picture = new BrowserWindow({ width: 300, height: 200, frame: false, transparent: false, backgroundColor: '#7764d8', useContentSize: true, thickFrame: false, roundedCorners: false, show: false, webPreferences: { offscreen: true, preload: path.resolve(__dirname, '../tools/screenshot/backend/screenshot-preload.js'), contextIsolation: true, sandbox: true } });
     await picture.loadFile(path.resolve(__dirname, '../tools/screenshot/picture.html'));
     for (const zoom of [1, 1.25, 1.5]) {
       picture.webContents.setZoomFactor(zoom);

@@ -31,6 +31,11 @@ let menu,
 const image = {
   getSize: () => ({ width: 2000, height: 1000 }),
   toDataURL: () => 'data:image/png;base64,AA==',
+  toPNG: () => Buffer.from('test'),
+  toJPEG: (quality) => {
+    assert.equal(quality, 95);
+    return Buffer.from('jpeg-test');
+  },
   isEmpty: () => false,
   resize() {
     return this;
@@ -41,6 +46,7 @@ const image = {
   }
 };
 class Window extends EventEmitter {
+  setAppDetails(details) { this.appDetails = details; }
   constructor(options) {
     super();
     this.options = options;
@@ -185,9 +191,11 @@ const electron = {
     }
   }
 };
-vm.runInNewContext(fs.readFileSync(require.resolve('../shared/screenshot-service'), 'utf8'), {
+vm.runInNewContext(fs.readFileSync(require.resolve('../tools/screenshot/backend/screenshot-service'), 'utf8'), {
   require: (name) =>
-    name === './screenshot-project' ? require('../shared/screenshot-project') : name === './clipboard'
+    name === '../../../shared/taskbar-group' ? require('../shared/taskbar-group') :
+    name === './screenshot-layout' ? require('../tools/screenshot/backend/screenshot-layout') : name === './screenshot-image' ? require('../tools/screenshot/backend/screenshot-image') :
+    name === './screenshot-ocr' ? { recognize: async () => [{text:'测试文字',x:0,y:0,width:1,height:1}] } : name === './screenshot-project' ? require('../tools/screenshot/backend/screenshot-project') : name === '../../../shared/clipboard'
       ? electron.clipboard
       : name === './screenshot-mouse'
         ? { watch() {}, warm() {}, stop() {} }
@@ -195,7 +203,7 @@ vm.runInNewContext(fs.readFileSync(require.resolve('../shared/screenshot-service
         ? picker
         : name === 'electron'
           ? electron
-          : name === './window-service'
+          : name === '../../../shared/window-service'
             ? { windows: new Map([['screenshot', requester]]) }
             : name === 'node:child_process'
               ? {
@@ -206,9 +214,10 @@ vm.runInNewContext(fs.readFileSync(require.resolve('../shared/screenshot-service
                 }
               : require(name),
   module: serviceModule,
-  __dirname: require('node:path').resolve(__dirname, '../shared'),
+  __dirname: require('node:path').resolve(__dirname, '../tools/screenshot/backend'),
   process: { platform: 'win32' },
   Buffer,
+  AbortController,
   console,
   setInterval: (callback) => {
     intervalTick = callback;
@@ -261,8 +270,10 @@ vm.runInNewContext(fs.readFileSync(require.resolve('../shared/screenshot-service
     return menu;
   }
   let items = openMenu();
-  assert.ok(items.some(item => item.label === '关闭图片\tDelete'), '关闭菜单完整显示 Delete');
-  assert.equal(items.find(item => item.label === '保存 PNG 图片…').accelerator, 'CommandOrControl+S');
+  const closeItem = items.find(item => item.label === '关闭图片');
+  assert.equal(closeItem.accelerator, 'Delete', 'Delete 使用原生快捷键提示');
+  assert.equal(closeItem.registerAccelerator, false, '保留编辑模式下 Delete 删除标注的行为');
+  assert.equal(items.find(item => item.label === '保存为图片').accelerator, 'CommandOrControl+S');
   let pngSaves = 0;
   electron.dialog.showSaveDialog = async (_window, options) => {
     pngSaves++;
@@ -280,17 +291,18 @@ vm.runInNewContext(fs.readFileSync(require.resolve('../shared/screenshot-service
   assert.deepEqual(Array.from(items, (item) => item.label || item.type), [
     '窗口置顶',
     '编辑图片',
+    '提取文字(OCR)',
     'separator',
     '复制图片',
     'separator',
     '透明度…',
-    '边框粗细',
+    '显示边框',
     '重置尺寸（100%）',
     'separator',
-    '保存 PNG 图片…',
-    '保存源文件…',
+    '保存为图片',
+    '保存为可编辑文件',
     'separator',
-    '关闭图片\tDelete',
+    '关闭图片',
     '关闭所有图片…'
   ]);
   items.find((item) => item.label === '透明度…').click();
@@ -311,16 +323,26 @@ vm.runInNewContext(fs.readFileSync(require.resolve('../shared/screenshot-service
   assert.equal(handlers.get('shot:ready')(reopened).opacity, 37);
   handlers.get('shot:cancel')(reopened);
   items = openMenu();
-  const borders = items.find((item) => item.label === '边框粗细').submenu;
-  assert.deepEqual(
-    Array.from(borders, (item) => item.label),
-    ['无边框', '较细', '中等', '较粗']
-  );
-  assert.equal(borders[2].checked, true);
+  const borderSwitch = items.find((item) => item.label === '显示边框');
+  assert.equal(borderSwitch.type,'checkbox');
+  assert.equal(borderSwitch.checked,true);
+  assert.equal(borderSwitch.submenu,undefined);
   const before = picture.getContentBounds();
-  borders[1].click();
-  assert.equal(picture.options.width, before.width - 2);
-  assert.equal(picture.options.x, before.x + 1);
+  await borderSwitch.click({checked:false});
+  assert.equal(picture.options.width,before.width-6);
+  assert.equal(picture.options.x,before.x+3);
+  const uncheckedBorder=openMenu().find(item=>item.label==='显示边框');
+  assert.equal(uncheckedBorder.checked,false);
+  assert.equal(uncheckedBorder.icon,undefined,'未勾选时保留默认空白标记');
+  await uncheckedBorder.click({checked:true});
+  assert.equal(handlers.get('shot:ready')({sender:picture.webContents}).border,3);
+  assert.equal(picture.options.width,before.width);
+  assert.equal(picture.options.x,before.x);
+  picture.isAlwaysOnTop=()=>false;
+  const uncheckedPin=openMenu().find(item=>item.label==='窗口置顶');
+  assert.equal(uncheckedPin.checked,false);
+  assert.equal(uncheckedPin.icon,undefined,'置顶开关使用默认勾选标记');
+  picture.isAlwaysOnTop=()=>true;
   items.find((item) => item.label === '复制图片').click();
   assert.equal(copied, image);
   copied = null;
@@ -349,10 +371,10 @@ vm.runInNewContext(fs.readFileSync(require.resolve('../shared/screenshot-service
   electron.clipboard.writeImage = copyFunction;
   picture.setSize(500, 300);
   items.find((item) => item.label === '重置尺寸（100%）').click();
-  assert.equal(picture.options.width, 1004);
-  assert.equal(picture.options.height, 504);
+  assert.equal(picture.options.width, 1006);
+  assert.equal(picture.options.height, 506);
   assert.equal(picture.ratio, 2);
-  assert.equal(picture.extra.width, 4);
+  assert.equal(picture.extra.width, 6);
   assert.equal(picture.listenerCount('will-resize'), 0);
   assert.throws(() => handlers.get('shot:ready')(event), /未知贴图/);
   await handlers.get('shot:start')(caller, 'screen', { includeCursor: false, hideWindow: false });
@@ -392,13 +414,104 @@ vm.runInNewContext(fs.readFileSync(require.resolve('../shared/screenshot-service
     assert.deepEqual(Array.from(options.filters[0].extensions), ['gkshot'], 'Windows 过滤器只使用最后一段扩展名');
     return { canceled:true };
   };
-  await openMenu(original).find(item => item.label === '保存源文件…').click();
+  await openMenu(original).find(item => item.label === '保存为可编辑文件').click();
   original.options.x = 900;
   original.options.y = 900;
   original.emit('ready-to-show');
   assert.deepEqual(original.topmostChanges, [true, false], '新贴图先提升层级，再恢复普通窗口');
   assert.equal(original.options.x, -503);
   assert.equal(original.options.y, 117);
+  const ocrMessages = [];
+  original.webContents.send = (channel, value) => { if (channel === 'shot:ocr') ocrMessages.push(value); };
+  await openMenu(original).find(item => item.label === '提取文字(OCR)').click();
+  const textPanel = created.at(-1);
+  assert.equal(textPanel.options.show,false,'文字窗口测量完成前保持隐藏');
+  assert.throws(()=>handlers.get('shot:ocr-fit')({sender:textPanel.webContents},{width:NaN,height:64}),/尺寸无效/);
+  handlers.get('shot:ocr-fit')({sender:textPanel.webContents},{width:240,height:64});
+  assert.equal(textPanel.visible,true);
+  assert.equal(textPanel.options.height,64,'少量文字不会保留大量空白');
+  assert.equal(require('../tools/screenshot/backend/screenshot-layout').overlap(original.getBounds(),textPanel.getBounds()),0,'文字窗口避让截图');
+  assert.equal(handlers.get('shot:ocr-ready')({sender:textPanel.webContents})[0].text,'测试文字');
+  assert.equal(ocrMessages.at(-1).status,'done');
+  assert.ok(openMenu(original).some(item => item.label === '复制选中文字'));
+  let copyPrevented = false;
+  original.webContents.emit('before-input-event',{preventDefault(){copyPrevented=true;}},{type:'keyDown',key:'c',control:true});
+  assert.equal(copyPrevented,false,'OCR 模式保留原生文字复制');
+  textPanel.close();
+  assert.equal(ocrMessages.at(-1).status,'off','关闭文本窗口同步退出原图 OCR');
+  assert.throws(()=>handlers.get('shot:ocr-ready')({sender:textPanel.webContents}),/未知文字窗口/);
+  assert.ok(!openMenu(original).some(item => item.label === '复制选中文字'));
+  original.webContents.emit('before-input-event',{preventDefault(){copyPrevented=true;}},{type:'keyDown',key:'c',control:true});
+  assert.equal(copyPrevented,true,'退出 OCR 后恢复图片复制');
+  const fsPromises = require('node:fs/promises');
+  const imagePath = require('node:path').resolve(__dirname,'../.npm-cache/open-image-test.png');
+  await fsPromises.mkdir(require('node:path').dirname(imagePath),{recursive:true});
+  await fsPromises.writeFile(imagePath,Buffer.from('image-fixture'));
+  electron.dialog.showOpenDialog = async (_window,options) => {
+    assert.ok(options.filters[0].extensions.includes('png'));
+    assert.ok(options.filters[0].extensions.includes('gkshot'));
+    return {canceled:false,filePaths:[imagePath]};
+  };
+  assert.equal(await handlers.get('shot:open-project')(caller),true,'普通图片可以进入贴图窗口');
+  const imported = created.at(-1);
+  assert.equal(handlers.get('shot:ready')({sender:imported.webContents}).project,null);
+  assert.equal(handlers.get('shot:ready')({sender:imported.webContents}).dataUrl,image.toDataURL());
+  assert.ok(openMenu(imported).some(item=>item.label==='提取文字(OCR)'));
+  assert.ok(openMenu(imported).some(item=>item.label==='保存为可编辑文件'));
+  assert.equal(imported.appDetails.appId, 'com.electron.electrontoolbox.tool.screenshot');
+  assert.equal(imported.options.icon, require('node:path').resolve(__dirname, '../tools/screenshot/icon.png'));
+  const exportedPng=imagePath+'.export.png', exportedProject=imagePath+'.zip.gkshot';
+  const previousSaveDialog=electron.dialog.showSaveDialog;
+  electron.dialog.showSaveDialog=async (_window,options)=>{
+    assert.match(options.defaultPath,/^截图-\d{8}-\d{6}\.png$/);
+    return {canceled:false,filePath:exportedPng};
+  };
+  await handlers.get('shot:save')({sender:imported.webContents},'png');
+  assert.deepEqual(await fsPromises.readFile(exportedPng),image.toPNG());
+  for (const extension of ['jpg', 'jpeg', 'JPG', '']) {
+    const selectedPath = require('node:path').join(require('node:path').dirname(imagePath), 'save-format-test' + (extension ? '.' + extension : ''));
+    const destination = extension ? selectedPath : selectedPath + '.png';
+    electron.dialog.showSaveDialog = async (_window, options) => {
+      assert.equal(options.filters.length, 2);
+      assert.equal(options.filters[1].extensions.join(','), 'jpg,jpeg');
+      return {canceled:false, filePath:selectedPath};
+    };
+    await handlers.get('shot:save')({sender:imported.webContents}, 'png');
+    assert.deepEqual(await fsPromises.readFile(destination), extension ? Buffer.from('jpeg-test') : image.toPNG());
+    await fsPromises.unlink(destination);
+  }
+  electron.dialog.showSaveDialog = async () => ({canceled:true, filePath:exportedPng});
+  await handlers.get('shot:save')({sender:imported.webContents}, 'png');
+  assert.deepEqual(await fsPromises.readFile(exportedPng), image.toPNG(), '取消保存保留原文件');
+  const previousMessageBox = electron.dialog.showMessageBox;
+  let saveError;
+  electron.dialog.showMessageBox = async (_window, options) => { saveError = options.detail; };
+  electron.dialog.showSaveDialog = async () => ({canceled:false, filePath:imagePath + '.unsupported'});
+  await handlers.get('shot:save')({sender:imported.webContents}, 'png');
+  assert.match(saveError, /请选择 PNG 或 JPEG/);
+  await assert.rejects(fsPromises.access(imagePath + '.unsupported'), {code:'ENOENT'});
+  electron.dialog.showMessageBox = previousMessageBox;
+  imported.webContents.executeJavaScript=async()=>[];
+  electron.dialog.showSaveDialog=async (_window,options)=>{
+    assert.match(options.defaultPath,/\.zip\.gkshot$/);
+    return {canceled:false,filePath:exportedProject};
+  };
+  await handlers.get('shot:save')({sender:imported.webContents},'project');
+  const savedProject=require('../tools/screenshot/backend/screenshot-project').decode(await fsPromises.readFile(exportedProject));
+  assert.deepEqual(savedProject.image,image.toPNG());
+  assert.deepEqual(savedProject.project.shapes,[]);
+  electron.dialog.showOpenDialog=async()=>({canceled:false,filePaths:[exportedProject]});
+  assert.equal(await handlers.get('shot:open-project')(caller),true,'截图源文件仍可打开');
+  assert.equal(handlers.get('shot:ready')({sender:created.at(-1).webContents}).project.format,'GrabKit');
+  electron.dialog.showSaveDialog=previousSaveDialog;
+  const beforeCancel=created.length;
+  electron.dialog.showOpenDialog=async()=>({canceled:true,filePaths:[]});
+  assert.equal(await handlers.get('shot:open-project')(caller),false);
+  assert.equal(created.length,beforeCancel);
+  await fsPromises.unlink(imagePath);
+  await fsPromises.unlink(exportedPng);
+  await fsPromises.unlink(exportedProject);
+  original.webContents.send = () => {};
   handlers.get('shot:editing')({ sender: original.webContents }, true);
   const editorPanel = created.at(-1);
   assert.equal(editorPanel.options.minHeight, 1, '工具栏不应保留固定最小高度');

@@ -81,3 +81,11 @@ body {
 .selecting #picture {
   object-fit: fill;
 }
+#ocr-layer { position:absolute; inset:var(--border,3px); pointer-events:none; z-index:6; }
+.ocr-active #ocr-layer { pointer-events:auto; cursor:text; user-select:text; -webkit-app-region:no-drag; }
+.ocr-line { position:absolute; color:transparent; white-space:pre; line-height:1; user-select:text; }
+.ocr-line span { display:inline-block; font-family:'Microsoft YaHei',sans-serif; transform-origin:left top; }
+.ocr-line span::selection { color:transparent; background:#7764d866; }
+#ocr-notice { position:fixed; bottom:14px; left:50%; transform:translateX(-50%); max-width:95%; width:max-content; padding:10px 14px; border-radius:8px; color:white; background:#24202de8; font:13px/1.5 sans-serif; z-index:30; pointer-events:none; }
+.ocr-spinner { display:inline-block; width:15px; height:15px; margin-right:8px; vertical-align:middle; border:2px solid #ffffff50; border-top-color:white; border-radius:50%; animation:ocr-spin .8s linear infinite; }
+@keyframes ocr-spin { to { transform:rotate(360deg); } }

@@ -1,6 +1,6 @@
 const { app, BrowserWindow } = require('electron');
 const assert = require('node:assert/strict');
-const picker = require('../shared/desktop-picker');
+const picker = require('../tools/screenshot/backend/desktop-picker');
 app.disableHardwareAcceleration();
 app.whenReady().then(async () => {
   try {

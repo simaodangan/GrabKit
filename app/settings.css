@@ -40,7 +40,7 @@ section + section {
   font-size: 13px;
   cursor: pointer;
 }
-#startup {
+#startup, #screenshot-resident {
   accent-color: var(--theme-ink);
 }
 button:disabled {

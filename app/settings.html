@@ -40,10 +40,17 @@
         </div>
         <label class="startup-toggle"><input id="startup" type="checkbox" role="switch" aria-describedby="startup-hint" disabled /> 开启</label>
       </section>
+      <section aria-labelledby="screenshot-title">
+        <div>
+          <h2 id="screenshot-title">截图工具常驻后台</h2>
+          <p id="screenshot-hint">关闭截图窗口后保留截图服务，下次截图更快，会占用少量内存。不影响开机自启动设置。</p>
+        </div>
+        <label class="startup-toggle"><input id="screenshot-resident" type="checkbox" role="switch" aria-describedby="screenshot-hint" disabled /> 开启</label>
+      </section>
       <section aria-labelledby="config-title">
         <div>
           <h2 id="config-title">本地配置</h2>
-          <p>清除工具排列顺序、工具隐藏设置、侧栏显示偏好、主题颜色和应用缓存。开机自启动设置保留。</p>
+          <p>清除工具排列顺序、工具隐藏设置、侧栏显示偏好、主题颜色和应用缓存。开机自启动和截图后台常驻设置保留。</p>
         </div>
         <button id="clear-config">清除配置和缓存</button>
       </section>

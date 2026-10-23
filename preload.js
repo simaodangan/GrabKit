@@ -20,10 +20,11 @@ window.addEventListener('DOMContentLoaded', async () => {
     shadow.append(iconStyle);
     const bar = document.createElement('div');
     bar.className = 'bar';
-    const icon = document.createElement('span');
-    icon.className = 'app-icon themed-app-icon';
+    const icon = document.createElement(chrome.iconUrl ? 'img' : 'span');
+    icon.className = chrome.iconUrl ? 'app-icon' : 'app-icon themed-app-icon';
+    if (chrome.iconUrl) { icon.src = chrome.iconUrl; icon.alt = document.title; }
     icon.setAttribute('role', 'img');
-    icon.setAttribute('aria-label', '随手用');
+    icon.setAttribute('aria-label', chrome.iconUrl ? document.title : '随手用');
     bar.append(icon);
     for (const [index, label] of ['窗口', '设置', '帮助'].entries()) {
       const button = document.createElement('button');
@@ -62,6 +63,13 @@ contextBridge.exposeInMainWorld('desktop', {
   getVersion: () => ipcRenderer.invoke('app:version'),
   getAppInfo: () => ipcRenderer.invoke('app:about'),
   settings: {
+    getScreenshotResident: () => ipcRenderer.invoke('settings:screenshot-resident:get'),
+    setScreenshotResident: (enabled) => ipcRenderer.invoke('settings:screenshot-resident:set', enabled),
+    onScreenshotResidentChanged: (callback) => {
+      const listener = (_event, state) => callback(state);
+      ipcRenderer.on('settings:screenshot-resident:changed', listener);
+      return () => ipcRenderer.removeListener('settings:screenshot-resident:changed', listener);
+    },
     getStartup: () => ipcRenderer.invoke('settings:startup:get'),
     setStartup: (enabled) => ipcRenderer.invoke('settings:startup:set', enabled),
     clearCache: () => ipcRenderer.invoke('settings:cache:clear')

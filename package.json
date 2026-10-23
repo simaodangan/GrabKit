@@ -1,6 +1,6 @@
 {
   "name": "electrontoolbox",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "可扩展的桌面小工具箱",
   "main": "main.js",
   "scripts": {
@@ -14,7 +14,8 @@
     "productName": "随手用",
     "executableName": "GrabKit",
     "asar": false,
-    "files": ["**/*", "!tests/**"],
+    "files": ["**/*", "!tests/**", "!docs/**", "!.ocr-build/**", "!dist/**", "!out/**"],
+    "extraFiles": [{ "from": "CHANGELOG.md", "to": "CHANGELOG.md" }],
     "win": {
       "icon": "shared/app-icon.ico",
       "target": [{ "target": "nsis", "arch": ["x64"] }]

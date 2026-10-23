@@ -1,5 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
+const { pathToFileURL } = require('node:url');
 
 function discoverTools(root) {
   const result = [];
@@ -31,6 +32,8 @@ function discoverTools(root) {
         keywords: String(metadata.keywords || ''),
         icon: String(metadata.icon || '▦'),
         color: ['purple', 'blue', 'orange'].includes(metadata.color) ? metadata.color : 'purple',
+        iconPath: fs.existsSync(path.join(folder, 'icon.png')) ? path.join(folder, 'icon.png') : null,
+        iconUrl: fs.existsSync(path.join(folder, 'icon.png')) ? pathToFileURL(path.join(folder, 'icon.png')).href : null,
         entry
       });
     } catch (error) {

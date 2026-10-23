@@ -2,9 +2,9 @@
   "id": "screenshot",
   "name": "屏幕截图",
   "category": "桌面效率",
-  "description": "区域框选或窗口截图，无标题贴图，支持置顶、透明度、边框及保存。",
+  "description": "截图或打开图片，支持本地 OCR、图片编辑、置顶、透明度及保存。",
   "icon": "▣",
   "color": "blue",
-  "keywords": "截图 屏幕 贴图 Snipaste 窗口 透明度",
+  "keywords": "截图 屏幕 贴图 Snipaste 窗口 透明度 图片 OCR 文字识别 编辑",
   "entry": "index.html"
 }

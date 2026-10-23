@@ -1,5 +1,7 @@
 const { BrowserWindow, dialog, Menu } = require('electron');
 const path = require('node:path');
+const fs = require('node:fs');
+const { setTaskbarGroup } = require('./taskbar-group');
 const windows = new Map();
 function openWindow(id, entry, title, { show = true } = {}) {
   const existing = windows.get(id);
@@ -12,13 +14,16 @@ function openWindow(id, entry, title, { show = true } = {}) {
     return existing;
   }
   const settings = id === 'settings' || id === 'about';
+  const toolIcon = path.join(path.dirname(entry), 'icon.png');
+  const iconPath = id !== 'home' && !settings && fs.existsSync(toolIcon)
+    ? toolIcon : path.join(__dirname, 'app-icon.ico');
   const compactSize = {
     home: { width: 980, height: 680, minWidth: 800, minHeight: 560 },
     screenshot: { width: 600, height: 520, minWidth: 520, minHeight: 460 }
   }[id];
   const window = new BrowserWindow({
-    show,
-    icon: path.join(__dirname, 'app-icon.ico'),
+    show: false,
+    icon: iconPath,
     width: settings ? 600 : 1180,
     height: id === 'settings' ? 640 : settings ? 300 : 800,
     minWidth: settings ? 480 : 800,
@@ -35,8 +40,10 @@ function openWindow(id, entry, title, { show = true } = {}) {
       sandbox: true
     }
   });
+  window.toolboxIcon = iconPath === toolIcon ? require('node:url').pathToFileURL(iconPath).href : null;
+  setTaskbarGroup(window, id === 'home' || settings ? 'main' : id);
   windows.set(id, window);
-  if (id === 'screenshot') require('./screenshot-service').initialize(window);
+  if (id === 'screenshot') require('../tools/screenshot/backend/screenshot-service').initialize(window);
   const menu = Menu.buildFromTemplate([
     {
       label: '窗口(&W)',
@@ -100,8 +107,15 @@ function openWindow(id, entry, title, { show = true } = {}) {
     });
     if (choice === 1) event.preventDefault();
   });
+  if (id === 'screenshot') window.on('close', (event) => {
+    if (require('../tools/screenshot/backend/screenshot-resident').keepOnClose(window)) {
+      event.preventDefault();
+      window.hide();
+    }
+  });
   window.on('closed', () => windows.delete(id));
   window.loadFile(entry).catch((error) => console.error('页面加载失败', error.message));
+  if (show) window.show();
   return window;
 }
 module.exports = { openWindow, windows };

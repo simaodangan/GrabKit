@@ -10,7 +10,7 @@ ipcMain.handle('shot:ready',()=>({dataUrl:nativeImage.createFromBitmap(Buffer.al
 ipcMain.handle('shot:editing',(_e,value)=>win.webContents.send('shot:editing',value));
 ipcMain.handle('shot:editor-state',()=>{});
 app.whenReady().then(async()=>{
- win=new BrowserWindow({show:false,width:700,height:500,webPreferences:{preload:path.resolve(__dirname,'../shared/screenshot-preload.js'),sandbox:true,contextIsolation:true}});
+ win=new BrowserWindow({show:false,width:700,height:500,webPreferences:{preload:path.resolve(__dirname,'../tools/screenshot/backend/screenshot-preload.js'),sandbox:true,contextIsolation:true}});
  try {
  await win.loadFile(path.resolve(__dirname,'../tools/screenshot/picture.html'));
  const result=await win.webContents.executeJavaScript(`(async()=>{

@@ -1,5 +1,8 @@
 const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('shot', {
+  onOcr: callback => ipcRenderer.on('shot:ocr', (_event, value) => callback(value)),
+  ocrReady: () => ipcRenderer.invoke('shot:ocr-ready'),
+  ocrFit: size => ipcRenderer.invoke('shot:ocr-fit', size),
   ready: () => ipcRenderer.invoke('shot:ready'),
   save: (format) => ipcRenderer.invoke('shot:save', format),
   projectLoaded: () => ipcRenderer.invoke('shot:project-loaded'),
