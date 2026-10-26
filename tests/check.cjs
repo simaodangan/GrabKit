@@ -29,11 +29,11 @@ for (const directory of ['app', 'shared', 'tools']) checkDirectory(path.join(roo
 console.log('脚本语法及 HTML 资源引用检查通过');
 const { discoverTools } = require('../shared/tool-registry');
 const registered = discoverTools(path.join(root, 'tools'));
-assert.deepEqual(registered.map((tool) => tool.id).sort(), ['formula-converter', 'screenshot']);
+assert.deepEqual(registered.map((tool) => tool.id).sort(), ['formula-converter', 'screenshot', 'table-converter']);
 for (const tool of registered) {
   assert.ok(tool.iconPath && fs.existsSync(tool.iconPath), `${tool.id} 缺少统一图标`);
   assert.equal(require('node:url').fileURLToPath(tool.iconUrl), tool.iconPath);
   const icon = fs.readFileSync(tool.iconPath);
   assert.equal(icon.subarray(1, 4).toString(), 'PNG');
 }
-console.log('工具发现检查通过：仅保留屏幕截图和 GPT 论文公式转 Word');
+console.log('工具发现检查通过：屏幕截图、GPT 论文公式转 Word 和 draw.io 表格双向转换');

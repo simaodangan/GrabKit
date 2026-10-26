@@ -1,12 +1,16 @@
 """Generate shared UI/window/menu tool icons from tool.json (requires Pillow)."""
 import json
+import sys
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 
 root = Path(__file__).resolve().parent.parent
-palette = {"blue": ("#eaf1fc", "#6494d7"), "orange": ("#fbf1e6", "#ce9a61")}
+palette = {"blue": ("#eaf1fc", "#6494d7"), "orange": ("#fbf1e6", "#ce9a61"),
+           "purple": ("#f0ecfc", "#8b75cc")}
 font_path = Path("C:/Windows/Fonts/seguisym.ttf")
-for name in ("screenshot", "formula-converter"):
+names = sys.argv[1:] or [folder.name for folder in sorted((root / "tools").iterdir())
+                        if folder.is_dir() and (folder / "tool.json").is_file()]
+for name in names:
     folder = root / "tools" / name
     metadata = json.loads((folder / "tool.json").read_text(encoding="utf-8"))
     background, foreground = palette[metadata["color"]]

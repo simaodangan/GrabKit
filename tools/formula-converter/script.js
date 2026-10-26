@@ -1,4 +1,8 @@
 const $ = (id) => document.getElementById(id);
+let wordClipboard;
+const wordClipboardReady = import('./word-clipboard.mjs').then((module) => {
+  wordClipboard = module;
+}).catch((error) => console.error('Word 公式复制组件加载失败', error));
 function escapeHTML(s) {
   return s
     .replace(/&/g, '&amp;')
@@ -103,6 +107,19 @@ function buildMath(tex, display) {
     let doc = new DOMParser().parseFromString(xml, 'application/xml');
     if (doc.querySelector('parsererror')) throw new Error('MathML 解析失败');
     let m = doc.documentElement;
+    // Keep labels identifiable so copying can emit Word's native # layout.
+    for (const labeledRow of m.querySelectorAll('mlabeledtr')) {
+      const row = doc.createElementNS(m.namespaceURI, 'mtr');
+      const label = labeledRow.firstElementChild;
+      for (const cell of Array.from(labeledRow.children).slice(1)) row.appendChild(cell);
+      if (label) {
+        label.removeAttribute('id');
+        label.setAttribute('columnalign', 'right');
+        label.setAttribute('data-equation-label', 'true');
+        row.appendChild(label);
+      }
+      labeledRow.replaceWith(row);
+    }
     m.setAttribute('xmlns', 'http://www.w3.org/1998/Math/MathML');
     if (display) m.setAttribute('display', 'block');
     return display
@@ -158,7 +175,13 @@ function showToast(message) {
   toast.classList.add('visible');
   toastTimer = setTimeout(() => toast.classList.remove('visible'), 2200);
 }
+let nativeCopyFailed = false;
 async function copyPreview() {
+  await wordClipboardReady;
+  if (!wordClipboard && $('preview').querySelector('[data-equation-label]')) {
+    showToast('公式编号复制组件加载失败，请重新打开工具');
+    return;
+  }
   const root = $('preview'),
     selection = window.getSelection(),
     range = document.createRange();
@@ -166,12 +189,35 @@ async function copyPreview() {
   range.selectNodeContents(root);
   selection.addRange(range);
   let ok = false;
+  nativeCopyFailed = false;
   try {
     ok = document.execCommand('copy');
   } catch (e) {}
   selection.removeAllRanges();
-  showToast(ok ? '✓ 已复制，请粘贴到 Word' : '复制未成功，请选中右侧预览后按 Ctrl+C');
+  if (!nativeCopyFailed)
+    showToast(ok ? '✓ 已复制，请粘贴到 Word' : '复制未成功，请选中右侧预览后按 Ctrl+C');
 }
+// The same payload is used by the existing button and by copying a selection.
+document.addEventListener('copy', (event) => {
+  const selection = window.getSelection();
+  if (!wordClipboard || !selection.rangeCount || !event.clipboardData) return;
+  const range = selection.getRangeAt(0);
+  if (!$('preview').contains(range.commonAncestorContainer)) return;
+  const fragment = document.createElement('div');
+  fragment.appendChild(range.cloneContents());
+  if (!fragment.querySelector('[data-equation-label]')) return;
+  try {
+    const html = wordClipboard.createWordHTML(fragment);
+    event.clipboardData.setData('text/html', html);
+    event.clipboardData.setData('text/plain', selection.toString());
+    event.preventDefault();
+  } catch (error) {
+    nativeCopyFailed = true;
+    console.error('Word 原生编号复制失败', error);
+    event.preventDefault();
+    showToast('公式编号复制失败，请重新转换后重试');
+  }
+});
 // Automatic, debounced conversion for typing and immediate conversion after paste.
 let conversionTimer = null;
 function scheduleConversion(delay = 250) {

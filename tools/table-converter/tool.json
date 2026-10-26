@@ -1,0 +1,10 @@
+{
+  "id": "table-converter",
+  "name": "draw.io 表格双向转换",
+  "category": "文本处理",
+  "description": "在 draw.io 与 Word、Excel 之间转换表格，保留中文和合并单元格，支持编辑预览与区域复制。",
+  "icon": "▦",
+  "color": "blue",
+  "keywords": "表格 双向 转换 draw.io drawio diagrams.net word excel xml 合并单元格",
+  "entry": "index.html"
+}

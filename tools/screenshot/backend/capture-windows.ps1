@@ -10,6 +10,7 @@ using System.Runtime.InteropServices;
 using System.IO;
 using System.Windows.Forms;
 public static class ToolboxCapture {
+  public static uint RecipientProcessId;
   public static int[] LastBounds { get; private set; }
   [StructLayout(LayoutKind.Sequential)] struct POINT { public int x, y; }
   [StructLayout(LayoutKind.Sequential)] struct RECT { public int left, top, right, bottom; }
@@ -46,6 +47,7 @@ public static class ToolboxCapture {
   [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr window);
   [DllImport("user32.dll")] static extern bool IsIconic(IntPtr window);
   [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr window);
+  [DllImport("user32.dll")] static extern bool AllowSetForegroundWindow(uint processId);
   [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr window, int command);
   [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr window, IntPtr after, int x, int y, int width, int height, uint flags);
   [DllImport("user32.dll")] static extern IntPtr GetShellWindow();
@@ -128,6 +130,8 @@ public static class ToolboxCapture {
     void Finish(bool accepted) {
       if (finished) return;
       finished = true; inputTimer.Stop();
+      // Hand activation permission to Electron while the selector still owns foreground input.
+      if (accepted && RecipientProcessId != 0) AllowSetForegroundWindow(RecipientProcessId);
       DialogResult = accepted ? DialogResult.OK : DialogResult.Cancel; Close();
     }
     void Press(Point point) {
@@ -471,6 +475,7 @@ if ($Server) {
       } elseif (($request.mode -eq 'screen' -or $request.mode -eq 'window') -and $request.cursor -is [bool]) {
         $zoom = 4
         if ($null -ne $request.magnification) { $zoom = [int]$request.magnification }
+        [ToolboxCapture]::RecipientProcessId = [uint32]$request.recipientProcessId
         $image = [ToolboxCapture]::Select(($request.mode -eq 'window'), $request.cursor, $zoom, ($request.syncDesktop -eq $true))
       } else { throw 'Invalid selection command' }
       [Console]::WriteLine((ConvertTo-Json -Compress @{ type = 'result'; image = $image; bounds = [ToolboxCapture]::LastBounds }))

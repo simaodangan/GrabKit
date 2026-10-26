@@ -55,6 +55,10 @@ class Window extends EventEmitter {
     this.webContents.setWindowOpenHandler = () => {};
     this.webContents.send = () => {};
     this.webContents.isDestroyed = () => false;
+    this.webContents.focus = () => {
+      assert.equal(this.focused, true, '先激活贴图窗口，再聚焦页面');
+      this.pageFocused = true;
+    };
     this.webContents.getZoomFactor = () => 1;
     created.push(this);
   }
@@ -107,7 +111,10 @@ class Window extends EventEmitter {
   setAlwaysOnTop(value) {
     (this.topmostChanges ||= []).push(value);
   }
-  focus() {}
+  focus() {
+    this.focused = true;
+    this.topmostAtFocus = this.topmostChanges?.at(-1);
+  }
   close() {
     this.emit('closed');
   }
@@ -419,6 +426,12 @@ vm.runInNewContext(fs.readFileSync(require.resolve('../tools/screenshot/backend/
   original.options.y = 900;
   original.emit('ready-to-show');
   assert.deepEqual(original.topmostChanges, [true, false], '新贴图先提升层级，再恢复普通窗口');
+  assert.equal(original.topmostAtFocus, false, '完成置顶状态切换后再获取焦点');
+  assert.equal(original.pageFocused, true, '贴图显示后立即聚焦快捷键接收页面');
+  copied = null;
+  original.webContents.emit('before-input-event', { preventDefault() {} },
+    { type: 'keyDown', key: 'c', control: true });
+  assert.equal(copied, image, '显示后无需点击即可处理复制快捷键');
   assert.equal(original.options.x, -503);
   assert.equal(original.options.y, 117);
   const ocrMessages = [];

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; connect-src 'none'">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>表格双向转换工具</title>
+<link rel="stylesheet" href="./style.css">
+<script src="../../shared/theme.js"></script>
+</head>
+<body>
+<main class="wrap">
+  <div class="topbar"><h1>表格双向转换工具</h1><div id="forwardTopActions" class="buttons"><button id="copyWordTop" disabled>复制到 Word</button><button id="copyExcelTop" disabled>复制到 Excel</button></div><div id="reverseTopActions" class="buttons hidden"><button id="copyDrawioTop" disabled>复制到 draw.io</button></div></div>
+  <p id="subtitle" class="sub">粘贴 draw.io 复制出的 URL 编码内容或 XML，自动还原表格、合并单元格与中文。</p>
+  <div class="mode-switch" role="tablist" aria-label="转换方向"><button id="modeForward" class="active" role="tab" aria-selected="true">draw.io → Word / Excel</button><button id="modeReverse" role="tab" aria-selected="false">Word / Excel → draw.io</button></div>
+  <div class="cols">
+    <section class="pane">
+      <div class="head"><span id="sourceTitle">① 粘贴 draw.io 数据</span><div class="buttons"><button class="secondary" id="example">载入 CN2 示例</button><button id="convert">立即刷新</button></div></div>
+      <div class="body"><textarea id="source" spellcheck="false" aria-label="draw.io 数据" placeholder="从 draw.io 复制表格后粘贴到这里。支持：%3CmxGraphModel...、原始 XML、完整 mxfile。"></textarea><div id="officePaste" class="paste-zone hidden" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="在 Word 或 Excel 中复制表格，然后点击这里按 Ctrl+V。"></div><div id="reverseNote" class="reverse-note hidden">优先读取剪贴板中的 HTML 表格；没有 HTML 时自动按制表符和换行解析。</div></div>
+    </section>
+    <section class="pane">
+      <div class="head"><span id="previewTitle">② Office 表格预览</span><div class="buttons"><span id="status" class="status">等待输入</span><span id="forwardPreviewActions" class="buttons"><button id="copyWord" disabled>复制到 Word</button><button id="copyExcel" disabled>复制到 Excel</button></span><span id="reversePreviewActions" class="buttons hidden"><button id="copyDrawio" disabled>复制到 draw.io</button></span></div></div>
+      <div class="body"><div id="preview" class="paper" contenteditable="true" role="textbox" aria-multiline="true" aria-label="可编辑表格预览"><p class="placeholder" contenteditable="false">转换后会在这里显示可编辑的表格。</p></div></div>
+    </section>
+  </div>
+  <div id="forwardHelp" class="help"><b>使用：</b>粘贴后会自动转换；可直接修改右侧文字，再点击顶部按钮复制。<b>在 Chrome 中拖动跨过多个单元格，可框选连续矩形区域；高亮后按 Ctrl+C 进行无格式复制，按 Esc 取消。</b>「复制到 Word」只保留表格与合并结构；「复制到 Excel」只复制纯数据。两者均不携带字体、边框、字号、底色或内边距。</div>
+  <div id="reverseHelp" class="help hidden"><b>使用：</b>从 Word 或 Excel 复制表格并粘贴到左侧，右侧自动生成可编辑预览；确认后点击「复制到 draw.io」，再到 draw.io 画布按 Ctrl+V。支持合并单元格、中文和多个表格；样式不会带入 draw.io。</div>
+</main>
+<div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+<script src="./script.js"></script>
+</body>
+</html>

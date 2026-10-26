@@ -24,7 +24,7 @@ npm run check
 npm run pack:win
 ```
 
-输出位于 `dist/GrabKit-Setup-<版本号>-x64.exe`，例如 `GrabKit-Setup-0.1.1-x64.exe`。安装后的主程序为 `GrabKit.exe`，卸载程序为 `Uninstall.exe`。直接分发此 EXE 即可，用户可通过中文安装向导选择安装位置，并创建桌面和开始菜单快捷方式。支持从 Windows 设置卸载，卸载时保留用户配置。版本号读取 `package.json` 的 `version`，打包不会自动递增。每次发布时同步更新根目录 `CHANGELOG.md`，按版本从新到旧记录更新内容；打包会将该文件复制到安装目录顶层，与 `GrabKit.exe` 同级，用户可直接打开查看。
+输出位于 `dist/GrabKit-Setup-<版本号>-x64.exe`，例如 `GrabKit-Setup-0.1.2-x64.exe`。安装后的主程序为 `GrabKit.exe`，卸载程序为 `Uninstall.exe`。直接分发此 EXE 即可，用户可通过中文安装向导选择安装位置，并创建桌面和开始菜单快捷方式。支持从 Windows 设置卸载，卸载时保留用户配置。版本号读取 `package.json` 的 `version`，打包不会自动递增。每次发布时同步更新根目录 `CHANGELOG.md`，按版本从新到旧记录更新内容；打包会将该文件复制到安装目录顶层，与 `GrabKit.exe` 同级，用户可直接打开查看。
 
 安装向导在选择安装位置后显示「安装选项」：开机自动启动、创建桌面快捷方式、在开始菜单创建文件夹，三个选项默认勾选，均可取消。开始菜单文件夹内包含主程序和卸载程序快捷方式。重新安装时按本次选择设置；开机自启动也可在应用「设置 → 开机自启动」中关闭，卸载时清理启动项和快捷方式。开机启动仅显示系统托盘图标，手动打开、双击托盘或使用 Ctrl+Shift+Space 时显示主界面；托盘创建失败时显示主界面。直接运行免安装目录不会自动开启自启动。
 
@@ -43,6 +43,7 @@ app/
   screenshot/               屏幕截图与当前窗口置顶
     backend/                截图专属后台模块、预加载脚本、PowerShell 脚本与菜单图标
   formula-converter/        GPT 正文与公式转 MathML，复制到 Word
+  table-converter/          draw.io 与 Word / Excel 表格双向转换
 shared/
   tool-registry.js           自动发现与校验 tool.json
   clipboard.js              文本剪贴板服务
@@ -76,9 +77,9 @@ scripts/                    打包、发布和资源生成脚本
 
 重启自动发现，分类同步生成，无需修改主界面。ID 必须唯一，仅允许小写字母、数字和连字符；入口必须是当前工具目录内的 HTML。每个工具复用一个独立窗口，不同工具可同时打开。页面 CSP 可参考现有工具。
 
-此机制用于本地可信工具，不是第三方插件权限沙箱。当前仅保留屏幕截图和 GPT 论文公式转 Word 两个工具。
+此机制用于本地可信工具，不是第三方插件权限沙箱。当前提供屏幕截图、GPT 论文公式转 Word 和 draw.io 表格双向转换三个工具。
 
-工具目录中的 `icon.png` 由主界面工具卡片、工具窗口标题栏、Windows 任务栏和托盘「我的工具」菜单共用；未提供时保留文字图标及主程序窗口图标。现有两个工具的 PNG / ICO 可通过 `python scripts/generate-tool-icons.py` 从 `tool.json` 的符号和配色重新生成（需要 Pillow 和 Windows Segoe UI Symbol 字体）。
+工具目录中的 `icon.png` 由主界面工具卡片、工具窗口标题栏、Windows 任务栏和托盘「我的工具」菜单共用；未提供时保留文字图标及主程序窗口图标。各工具的 PNG / ICO 可通过 `python scripts/generate-tool-icons.py` 从 `tool.json` 的符号和配色重新生成，也可在命令末尾指定工具目录名，仅生成该工具的图标（需要 Pillow 和 Windows Segoe UI Symbol 字体）。
 
 ## 原生接口
 

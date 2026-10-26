@@ -218,8 +218,10 @@ function create(image, bounds, selection = false, project = null, fitToScreen = 
     window.show();
     // Reapply after showing: Windows may otherwise relocate a newly created window.
     if (bounds && !selection) window.setContentBounds(initialBounds);
-    window.focus();
     if (!selection) window.setAlwaysOnTop(false);
+    // Focus after all native stacking changes, including the renderer that receives shortcuts.
+    window.focus();
+    window.webContents.focus();
     refreshViewport();
     if (!selection && process.platform === 'win32' && typeof window.getNativeWindowHandle === 'function') {
       nativeMouse.watch(window, action => {
