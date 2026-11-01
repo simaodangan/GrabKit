@@ -22,6 +22,7 @@ const { setTaskbarGroup } = require('../../../shared/taskbar-group');
 const sessions = new Map();
 const opacityPanels = new Map();
 const editorPanels = new Map();
+const actionPanels = new Map();
 const desktopPicker = require('./desktop-picker');
 const nativeMouse = require('./screenshot-mouse');
 const ocr = require('./screenshot-ocr');
@@ -203,13 +204,13 @@ function create(image, bounds, selection = false, project = null, fitToScreen = 
       !selection &&
       input.type === 'keyDown' &&
       (input.control || input.meta) &&
-      ['c', 's'].includes(input.key.toLowerCase())
+      ['c', 'x', 's'].includes(input.key.toLowerCase())
     ) {
-      if (input.key.toLowerCase() === 'c' && state.ocrResult) return;
+      if (state.editing || (input.key.toLowerCase() === 'c' && state.ocrResult)) return;
       event.preventDefault();
       if (input.key.toLowerCase() === 's') {
         if (!input.isAutoRepeat) void saveImage(state);
-      } else void copyImage(state);
+      } else if (!input.isAutoRepeat) void copyImage(state, input.key.toLowerCase() === 'x');
     }
   });
   window.once('ready-to-show', () => {
@@ -223,6 +224,7 @@ function create(image, bounds, selection = false, project = null, fitToScreen = 
     window.focus();
     window.webContents.focus();
     refreshViewport();
+    if (!selection) openActionPanel(state);
     if (!selection && process.platform === 'win32' && typeof window.getNativeWindowHandle === 'function') {
       nativeMouse.watch(window, action => {
         if (window.isDestroyed()) return;
@@ -326,9 +328,12 @@ function openOpacity(state) {
   setTaskbarGroup(panel, 'screenshot');
   panel.loadFile(path.join(__dirname, '../opacity.html')).catch(close);
 }
-async function copyImage(state) {
+async function copyImage(state, cut = false) {
+  if (cut && state.cutting) return;
+  if (cut) state.cutting = true;
   try {
     await clipboard.writeImage(state.hasEdited ? await renderedImage(state) : state.image);
+    if (cut && !state.window.isDestroyed()) state.window.close();
   } catch (error) {
     if (!state.window.isDestroyed()) {
       dialog
@@ -339,8 +344,101 @@ async function copyImage(state) {
         })
         .catch(() => {});
     }
+  } finally {
+    if (cut) state.cutting = false;
   }
 }
+function setPinned(state, value) {
+  state.window.setAlwaysOnTop(value);
+  for (const panel of [state.actionPanel, state.editorPanel, state.opacityPanel, state.ocrPanel])
+    if (panel && !panel.isDestroyed()) panel.setAlwaysOnTop(value);
+  if (state.actionPanel && !state.actionPanel.isDestroyed())
+    state.actionPanel.webContents.send('shot:actions-state', { pinned: value });
+}
+function openActionPanel(state) {
+  if (state.closing || state.window.isDestroyed()) return;
+  if (state.actionPanel && !state.actionPanel.isDestroyed()) {
+    state.actionPanel.show();
+    return;
+  }
+  const width = 242, height = 36;
+  const picture = state.window.getBounds();
+  const area = screen.getDisplayMatching(picture).workArea;
+  const clamp = (value, min, max) => Math.max(min, Math.min(value, max));
+  const panel = new BrowserWindow({
+    x: clamp(Math.round(picture.x + (picture.width - width) / 2), area.x, area.x + area.width - width),
+    y: clamp(picture.y + picture.height + 3 + height <= area.y + area.height
+      ? picture.y + picture.height + 3 : picture.y - height - 3, area.y, area.y + area.height - height),
+    width, height, minWidth: width, minHeight: height, maxWidth: width, maxHeight: height,
+    frame: false, resizable: false, maximizable: false, fullscreenable: false,
+    useContentSize: true, thickFrame: false, hasShadow: false, roundedCorners: false,
+    parent: state.window, alwaysOnTop: state.window.isAlwaysOnTop(), skipTaskbar: true,
+    show: false, backgroundColor: '#f7f8fc',
+    webPreferences: { preload: path.join(__dirname, 'screenshot-preload.js'), contextIsolation: true, sandbox: true, nodeIntegration: false }
+  });
+  state.actionPanel = panel;
+  const id = panel.webContents.id;
+  actionPanels.set(id, state);
+  panel.setMenu(null);
+  setTaskbarGroup(panel, 'screenshot');
+  panel.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  panel.webContents.on('will-navigate', event => event.preventDefault());
+  // Keep the client area stable when Windows adjusts bounds during movement/DPI changes.
+  let restoringSize = false;
+  const restoreSize = () => {
+    if (restoringSize || panel.isDestroyed()) return;
+    const content = panel.getContentBounds();
+    if (content.width === width && content.height === height) return;
+    restoringSize = true;
+    try { panel.setContentSize(width, height); }
+    finally { restoringSize = false; }
+  };
+  panel.on('resize', restoreSize);
+  panel.on('move', restoreSize);
+  let previous = picture;
+  const follow = () => {
+    if (panel.isDestroyed()) return;
+    const next = state.window.getBounds();
+    const current = panel.getBounds();
+    const display = screen.getDisplayMatching(next).workArea;
+    panel.setContentBounds({
+      x: clamp(current.x + next.x - previous.x, display.x, display.x + display.width - width),
+      y: clamp(current.y + next.y - previous.y, display.y, display.y + display.height - height),
+      width, height
+    });
+    previous = next;
+  };
+  state.window.on('move', follow);
+  const close = () => { if (!panel.isDestroyed()) panel.close(); };
+  state.window.once('closed', close);
+  panel.once('closed', () => {
+    actionPanels.delete(id);
+    state.actionPanel = null;
+    state.window.removeListener('move', follow);
+    state.window.removeListener('closed', close);
+  });
+  panel.once('ready-to-show', () => { restoreSize(); panel.showInactive(); });
+  panel.loadFile(path.join(__dirname, '../picture-toolbox.html')).catch(close);
+}
+ipcMain.handle('shot:actions-state', event => {
+  const state = actionPanels.get(event.sender.id);
+  if (!state) throw new Error('未知工具箱');
+  return { pinned: state.window.isAlwaysOnTop() };
+});
+ipcMain.handle('shot:action', (event, action) => {
+  const state = sessions.get(event.sender.id) || actionPanels.get(event.sender.id);
+  if (!state || state.selection || state.closing) throw new Error('未知贴图');
+  switch (action) {
+    case 'copy': return copyImage(state);
+    case 'cut': return copyImage(state, true);
+    case 'save': return saveImage(state);
+    case 'pin': return setPinned(state, !state.window.isAlwaysOnTop());
+    case 'edit': return setEditing(state, !state.editing);
+    case 'close': return state.window.close();
+    case 'hide': return state.actionPanel?.close();
+    default: throw new Error('未知操作');
+  }
+});
 function popup(state) {
   const { window } = state;
   if (state.openMenu || window.isDestroyed()) return;
@@ -351,9 +449,7 @@ function popup(state) {
       type: 'checkbox',
       checked: window.isAlwaysOnTop(),
       click: (item) => {
-        window.setAlwaysOnTop(item.checked);
-        for (const panel of [state.editorPanel, state.opacityPanel, state.ocrPanel])
-          if (panel && !panel.isDestroyed()) panel.setAlwaysOnTop(item.checked);
+        setPinned(state, item.checked);
       }
     },
     { label: state.editing ? '退出编辑' : '编辑图片', enabled: !state.ocrBusy, click: () => {
@@ -363,7 +459,9 @@ function popup(state) {
     { label: state.ocrBusy ? '正在识别文字…' : '提取文字(OCR)', enabled: !state.ocrBusy, click: () => startOcr(state) },
     { type: 'separator' },
     ...(state.ocrResult ? [{ label: '复制选中文字', role: 'copy', icon: icon('copy') }] : []),
-    { label: '复制图片', icon: icon('copy'), accelerator: state.ocrResult ? undefined : 'CommandOrControl+C', click: () => copyImage(state) },
+    { label: '显示工具箱', click: () => openActionPanel(state) },
+    { label: '剪切', click: () => copyImage(state, true) },
+    { label: '复制图片', icon: icon('copy'), accelerator: state.ocrResult ? undefined : 'CommandOrControl+C', registerAccelerator: false, click: () => copyImage(state) },
     { type: 'separator' },
     { label: '透明度…', click: () => openOpacity(state) },
     {
@@ -392,7 +490,7 @@ function popup(state) {
       }
     },
     { type: 'separator' },
-    { label: '保存为图片', icon: icon('save'), accelerator: 'CommandOrControl+S', click: () => saveImage(state) },
+    { label: '保存为图片', icon: icon('save'), accelerator: 'CommandOrControl+S', registerAccelerator: false, click: () => saveImage(state) },
     { label: '保存为可编辑文件', icon: icon('save-project'), click: () => saveProject(state) },
     { type: 'separator' },
     { label: '关闭图片', icon: icon('close'), accelerator: 'Delete', registerAccelerator: false, click: () => window.close() },

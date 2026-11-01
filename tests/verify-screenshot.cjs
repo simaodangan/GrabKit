@@ -158,6 +158,7 @@ const electron = {
     getSources: async () => [{ id: 'screen:1', display_id: '1', name: 'screen', thumbnail: image }]
   },
   screen: {
+    getDisplayMatching: () => ({ workArea: { x: -1000, y: 0, width: 2000, height: 1000 } }),
     getAllDisplays: () => [
       {
         id: 1,
@@ -300,6 +301,8 @@ vm.runInNewContext(fs.readFileSync(require.resolve('../tools/screenshot/backend/
     '编辑图片',
     '提取文字(OCR)',
     'separator',
+    '显示工具箱',
+    '剪切',
     '复制图片',
     'separator',
     '透明度…',
@@ -425,6 +428,34 @@ vm.runInNewContext(fs.readFileSync(require.resolve('../tools/screenshot/backend/
   original.options.x = 900;
   original.options.y = 900;
   original.emit('ready-to-show');
+  const toolbox = created.at(-1);
+  assert.equal(toolbox.options.parent, original, '工具箱绑定对应图片');
+  assert.equal(toolbox.options.skipTaskbar, true);
+  assert.equal(toolbox.options.x, -121, '工具箱默认与图片水平居中');
+  assert.equal(toolbox.options.y, 626, '默认放在图片下方并保留 3px 间距');
+  original.options.x += 10;
+  original.emit('move');
+  assert.equal(toolbox.options.x, -111, '移动图片时工具箱跟随');
+  toolbox.options.width = 260;
+  toolbox.options.height = 42;
+  original.emit('move');
+  assert.equal(toolbox.options.width, 242, '跟随移动时固定工具箱宽度');
+  assert.equal(toolbox.options.height, 36, '跟随移动时固定工具箱高度');
+  toolbox.options.width = 300;
+  toolbox.options.height = 50;
+  toolbox.emit('resize');
+  assert.equal(toolbox.options.width, 242, '系统调整尺寸后恢复宽度');
+  assert.equal(toolbox.options.height, 36, '系统调整尺寸后恢复高度');
+  toolbox.options.height = 40;
+  toolbox.emit('move');
+  assert.equal(toolbox.options.height, 36, '独立拖动工具箱时也保持尺寸');
+  original.options.x -= 10;
+  original.emit('move');
+  await handlers.get('shot:action')({ sender: toolbox.webContents }, 'pin');
+  assert.equal(toolbox.topmostChanges.at(-1), false, '同步工具箱置顶状态');
+  handlers.get('shot:action')({ sender: toolbox.webContents }, 'hide');
+  assert.equal(handlers.get('shot:ready')({ sender: original.webContents }).selection, false, '收起工具箱保留图片');
+  original.topmostChanges.pop();
   assert.deepEqual(original.topmostChanges, [true, false], '新贴图先提升层级，再恢复普通窗口');
   assert.equal(original.topmostAtFocus, false, '完成置顶状态切换后再获取焦点');
   assert.equal(original.pageFocused, true, '贴图显示后立即聚焦快捷键接收页面');

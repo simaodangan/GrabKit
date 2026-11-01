@@ -1,5 +1,14 @@
 const picture = document.querySelector('#picture');
 const selection = document.querySelector('#selection');
+document.addEventListener('keydown', event => {
+  if (!document.body.classList.contains('editing') || !(event.ctrlKey || event.metaKey) || event.repeat) return;
+  const target = event.target;
+  if (target.closest('input, textarea, [contenteditable="true"]')) return;
+  const action = { c: 'copy', x: 'cut', s: 'save' }[event.key.toLowerCase()];
+  if (!action) return;
+  event.preventDefault();
+  window.shot.action(action).catch(console.error);
+});
 let start;
 let selecting = false;
 let submitting = false;

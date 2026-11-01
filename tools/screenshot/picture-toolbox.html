@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'none'" />
+  <title>截图工具箱</title>
+  <link rel="stylesheet" href="./picture-toolbox.css" />
+  <script src="../../shared/theme.js"></script>
+</head>
+<body>
+  <div class="handle" title="拖动工具箱" aria-label="拖动工具箱"><svg viewBox="0 0 10 20" aria-hidden="true"><circle cx="3" cy="5" r="1"/><circle cx="7" cy="5" r="1"/><circle cx="3" cy="10" r="1"/><circle cx="7" cy="10" r="1"/><circle cx="3" cy="15" r="1"/><circle cx="7" cy="15" r="1"/></svg></div>
+  <main aria-label="截图操作">
+    <button data-action="copy" title="复制（Ctrl+C）" aria-label="复制"><svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M16 8V3H3v13h5"/></svg></button>
+    <button data-action="cut" title="剪切（Ctrl+X）" aria-label="剪切"><svg viewBox="0 0 24 24"><circle cx="5.5" cy="7.5" r="2.5"/><circle cx="5.5" cy="16.5" r="2.5"/><path d="M7.7 8.7 21 18M7.7 15.3 21 6"/></svg></button>
+    <button data-action="edit" title="编辑" aria-label="编辑"><svg viewBox="0 0 24 24"><path d="m4 16-1 5 5-1L21 7l-4-4ZM14 6l4 4"/></svg></button>
+    <button data-action="save" title="保存（Ctrl+S）" aria-label="保存"><svg viewBox="0 0 24 24"><path d="M3 3h15l3 3v15H3ZM7 3v6h10V3M7 21v-8h10v8"/></svg></button>
+    <button data-action="pin" title="置顶" aria-label="置顶" aria-pressed="false"><svg viewBox="0 0 24 24"><g class="pin-free" transform="rotate(40 12 12)"><path d="M8 3h8l-1 7 4 4H5l4-4ZM12 14v7"/></g><g class="pin-fixed"><path d="M8 3h8l-1 7 4 4H5l4-4Z" fill="currentColor" fill-opacity=".25"/><path d="M12 14v7"/></g></svg></button>
+    <button data-action="close" title="删除截图（关闭图片）" aria-label="删除截图"><svg viewBox="0 0 24 24"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/></svg></button>
+    <button data-action="hide" title="收起工具箱（保留图片；右键图片可恢复）" aria-label="收起工具箱"><svg viewBox="0 0 24 24"><path d="m6 5 6 6 6-6M6 11l6 6 6-6M4 21h16"/></svg></button>
+  </main>
+  <script src="./picture-toolbox.js"></script>
+</body>
+</html>
