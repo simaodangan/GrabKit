@@ -361,7 +361,7 @@ function openActionPanel(state) {
     state.actionPanel.show();
     return;
   }
-  const width = 242, height = 36;
+  const width = 274, height = 32;
   const picture = state.window.getBounds();
   const area = screen.getDisplayMatching(picture).workArea;
   const clamp = (value, min, max) => Math.max(min, Math.min(value, max));
@@ -420,6 +420,12 @@ function openActionPanel(state) {
   panel.once('ready-to-show', () => { restoreSize(); panel.showInactive(); });
   panel.loadFile(path.join(__dirname, '../picture-toolbox.html')).catch(close);
 }
+ipcMain.handle('shot:move-actions', (event, position) => {
+  const panel = actionPanels.get(event.sender.id)?.actionPanel;
+  if (!panel || panel.isDestroyed() || panel.webContents !== event.sender) return;
+  if (!Number.isSafeInteger(position?.x) || !Number.isSafeInteger(position?.y)) return;
+  panel.setPosition(position.x, position.y);
+});
 ipcMain.handle('shot:actions-state', event => {
   const state = actionPanels.get(event.sender.id);
   if (!state) throw new Error('未知工具箱');
@@ -429,6 +435,7 @@ ipcMain.handle('shot:action', (event, action) => {
   const state = sessions.get(event.sender.id) || actionPanels.get(event.sender.id);
   if (!state || state.selection || state.closing) throw new Error('未知贴图');
   switch (action) {
+    case 'ocr': return startOcr(state);
     case 'copy': return copyImage(state);
     case 'cut': return copyImage(state, true);
     case 'save': return saveImage(state);
@@ -444,25 +451,27 @@ function popup(state) {
   if (state.openMenu || window.isDestroyed()) return;
   const icon = name => path.join(__dirname, 'menu-icons', nativeTheme?.shouldUseDarkColors ? 'dark' : 'light', `${name}.png`);
   const menu = Menu.buildFromTemplate([
-    {
-      label: '窗口置顶',
-      type: 'checkbox',
-      checked: window.isAlwaysOnTop(),
-      click: (item) => {
-        setPinned(state, item.checked);
-      }
-    },
-    { label: state.editing ? '退出编辑' : '编辑图片', enabled: !state.ocrBusy, click: () => {
+    ...(state.ocrResult ? [{ label: '复制选中文字', role: 'copy', icon: icon('copy') }] : []),
+    { label: '复制图片', icon: icon('copy'), accelerator: state.ocrResult ? undefined : 'CommandOrControl+C', registerAccelerator: false, click: () => copyImage(state) },
+    { label: '剪切', icon: icon('cut'), click: () => copyImage(state, true) },
+    { type: 'separator' },
+    { label: state.editing ? '退出编辑' : '编辑图片', icon: icon('edit'), enabled: !state.ocrBusy, click: () => {
       clearOcr(state);
       setEditing(state, !state.editing);
     } },
-    { label: state.ocrBusy ? '正在识别文字…' : '提取文字(OCR)', enabled: !state.ocrBusy, click: () => startOcr(state) },
+    { label: state.ocrBusy ? '正在识别文字…' : '提取文字(OCR)', icon: icon('ocr'), enabled: !state.ocrBusy, click: () => startOcr(state) },
     { type: 'separator' },
-    ...(state.ocrResult ? [{ label: '复制选中文字', role: 'copy', icon: icon('copy') }] : []),
-    { label: '显示工具箱', click: () => openActionPanel(state) },
-    { label: '剪切', click: () => copyImage(state, true) },
-    { label: '复制图片', icon: icon('copy'), accelerator: state.ocrResult ? undefined : 'CommandOrControl+C', registerAccelerator: false, click: () => copyImage(state) },
-    { type: 'separator' },
+    {
+      label: '显示工具箱',
+      type: 'checkbox',
+      checked: Boolean(state.actionPanel && !state.actionPanel.isDestroyed()),
+      click: (item) => item.checked ? openActionPanel(state) : state.actionPanel?.close()
+    },
+    {
+      label: '窗口置顶',
+      icon: icon(window.isAlwaysOnTop() ? 'pin-fixed' : 'pin'),
+      click: () => setPinned(state, !window.isAlwaysOnTop())
+    },
     { label: '透明度…', click: () => openOpacity(state) },
     {
       label: '显示边框',

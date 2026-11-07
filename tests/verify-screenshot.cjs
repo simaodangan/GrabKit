@@ -297,14 +297,14 @@ vm.runInNewContext(fs.readFileSync(require.resolve('../tools/screenshot/backend/
     { type:'keyDown', key:'s', control:true, isAutoRepeat:true });
   assert.equal(pngSaves, 1, '长按保存快捷键不重复打开对话框');
   assert.deepEqual(Array.from(items, (item) => item.label || item.type), [
-    '窗口置顶',
+    '复制图片',
+    '剪切',
+    'separator',
     '编辑图片',
     '提取文字(OCR)',
     'separator',
     '显示工具箱',
-    '剪切',
-    '复制图片',
-    'separator',
+    '窗口置顶',
     '透明度…',
     '显示边框',
     '重置尺寸（100%）',
@@ -350,8 +350,8 @@ vm.runInNewContext(fs.readFileSync(require.resolve('../tools/screenshot/backend/
   assert.equal(picture.options.x,before.x);
   picture.isAlwaysOnTop=()=>false;
   const uncheckedPin=openMenu().find(item=>item.label==='窗口置顶');
-  assert.equal(uncheckedPin.checked,false);
-  assert.equal(uncheckedPin.icon,undefined,'置顶开关使用默认勾选标记');
+  assert.match(uncheckedPin.icon, /[\\/]pin\.png$/);
+  assert.match(items.find(item => item.label === '窗口置顶').icon, /[\\/]pin-fixed\.png$/);
   picture.isAlwaysOnTop=()=>true;
   items.find((item) => item.label === '复制图片').click();
   assert.equal(copied, image);
@@ -431,24 +431,31 @@ vm.runInNewContext(fs.readFileSync(require.resolve('../tools/screenshot/backend/
   const toolbox = created.at(-1);
   assert.equal(toolbox.options.parent, original, '工具箱绑定对应图片');
   assert.equal(toolbox.options.skipTaskbar, true);
-  assert.equal(toolbox.options.x, -121, '工具箱默认与图片水平居中');
+  assert.equal(toolbox.options.x, -137, '工具箱默认与图片水平居中');
   assert.equal(toolbox.options.y, 626, '默认放在图片下方并保留 3px 间距');
   original.options.x += 10;
   original.emit('move');
-  assert.equal(toolbox.options.x, -111, '移动图片时工具箱跟随');
+  assert.equal(toolbox.options.x, -127, '移动图片时工具箱跟随');
   toolbox.options.width = 260;
   toolbox.options.height = 42;
   original.emit('move');
-  assert.equal(toolbox.options.width, 242, '跟随移动时固定工具箱宽度');
-  assert.equal(toolbox.options.height, 36, '跟随移动时固定工具箱高度');
+  assert.equal(toolbox.options.width, 274, '跟随移动时固定工具箱宽度');
+  assert.equal(toolbox.options.height, 32, '跟随移动时固定工具箱高度');
   toolbox.options.width = 300;
   toolbox.options.height = 50;
   toolbox.emit('resize');
-  assert.equal(toolbox.options.width, 242, '系统调整尺寸后恢复宽度');
-  assert.equal(toolbox.options.height, 36, '系统调整尺寸后恢复高度');
+  assert.equal(toolbox.options.width, 274, '系统调整尺寸后恢复宽度');
+  assert.equal(toolbox.options.height, 32, '系统调整尺寸后恢复高度');
   toolbox.options.height = 40;
   toolbox.emit('move');
-  assert.equal(toolbox.options.height, 36, '独立拖动工具箱时也保持尺寸');
+  assert.equal(toolbox.options.height, 32, '独立拖动工具箱时也保持尺寸');
+  const toolboxPosition = toolbox.getBounds();
+  const moveToolbox = handlers.get('shot:move-actions');
+  moveToolbox({ sender: original.webContents }, { x: 10, y: 20 });
+  assert.deepEqual(toolbox.getBounds(), toolboxPosition, '图片窗口不能直接拖动工具箱');
+  moveToolbox({ sender: toolbox.webContents }, { x: 10, y: 20 });
+  assert.deepEqual(toolbox.getBounds(), { ...toolboxPosition, x: 10, y: 20 }, '拖动把手移动工具箱');
+  moveToolbox({ sender: toolbox.webContents }, toolboxPosition);
   original.options.x -= 10;
   original.emit('move');
   await handlers.get('shot:action')({ sender: toolbox.webContents }, 'pin');
@@ -467,7 +474,18 @@ vm.runInNewContext(fs.readFileSync(require.resolve('../tools/screenshot/backend/
   assert.equal(original.options.y, 117);
   const ocrMessages = [];
   original.webContents.send = (channel, value) => { if (channel === 'shot:ocr') ocrMessages.push(value); };
-  await openMenu(original).find(item => item.label === '提取文字(OCR)').click();
+  const toolboxMenuItem = () => openMenu(original).find(item => item.label === '显示工具箱');
+  const hiddenToolbox = toolboxMenuItem();
+  assert.equal(hiddenToolbox.type, 'checkbox');
+  assert.equal(hiddenToolbox.checked, false);
+  hiddenToolbox.click({ checked: true });
+  const shownToolbox = toolboxMenuItem();
+  assert.equal(shownToolbox.checked, true);
+  shownToolbox.click({ checked: false });
+  assert.equal(toolboxMenuItem().checked, false);
+  toolboxMenuItem().click({ checked: true });
+  const ocrToolbox = created.at(-1);
+  await handlers.get('shot:action')({ sender: ocrToolbox.webContents }, 'ocr');
   const textPanel = created.at(-1);
   assert.equal(textPanel.options.show,false,'文字窗口测量完成前保持隐藏');
   assert.throws(()=>handlers.get('shot:ocr-fit')({sender:textPanel.webContents},{width:NaN,height:64}),/尺寸无效/);

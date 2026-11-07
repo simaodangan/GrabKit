@@ -1,3 +1,26 @@
+const handle = document.querySelector('.handle');
+let drag;
+handle.addEventListener('pointerdown', event => {
+  if (event.button !== 0 || drag) return;
+  event.preventDefault();
+  handle.setPointerCapture(event.pointerId);
+  drag = {
+    pointerId: event.pointerId,
+    offsetX: event.screenX - window.screenX,
+    offsetY: event.screenY - window.screenY
+  };
+});
+handle.addEventListener('pointermove', event => {
+  if (drag?.pointerId !== event.pointerId || !(event.buttons & 1)) return;
+  window.shot.moveActions({
+    x: Math.round(event.screenX - drag.offsetX),
+    y: Math.round(event.screenY - drag.offsetY)
+  }).catch(console.error);
+});
+handle.addEventListener('lostpointercapture', event => {
+  if (drag?.pointerId === event.pointerId) drag = null;
+});
+
 const pin = document.querySelector('[data-action="pin"]');
 function updateState(state) {
   pin.setAttribute('aria-pressed', String(state.pinned));
