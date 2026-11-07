@@ -14,11 +14,30 @@
     "productName": "随手用",
     "executableName": "GrabKit",
     "asar": false,
-    "files": ["**/*", "!tests/**", "!docs/**", "!.ocr-build/**", "!dist/**", "!out/**"],
-    "extraFiles": [{ "from": "CHANGELOG.md", "to": "CHANGELOG.md" }],
+    "files": [
+      "**/*",
+      "!tests/**",
+      "!docs/**",
+      "!.ocr-build/**",
+      "!dist/**",
+      "!out/**"
+    ],
+    "extraFiles": [
+      {
+        "from": "CHANGELOG.md",
+        "to": "CHANGELOG.md"
+      }
+    ],
     "win": {
       "icon": "shared/app-icon.ico",
-      "target": [{ "target": "nsis", "arch": ["x64"] }]
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
     },
     "nsis": {
       "include": "scripts/installer.nsh",
@@ -31,14 +50,16 @@
       "createStartMenuShortcut": true,
       "menuCategory": "随手用",
       "shortcutName": "随手用",
-      "installerLanguages": ["zh_CN"],
+      "installerLanguages": [
+        "zh_CN"
+      ],
       "deleteAppDataOnUninstall": false
     },
     "beforePack": "./scripts/stamp-build.cjs"
   },
   "devDependencies": {
     "electron": "^44.9.0",
-    "electron-builder": "^26.15.3"
+    "electron-builder": "^26.18.0"
   },
   "dependencies": {
     "mathjax": "3.2.2",
