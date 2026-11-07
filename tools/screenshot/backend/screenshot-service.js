@@ -361,15 +361,23 @@ function openActionPanel(state) {
     state.actionPanel.show();
     return;
   }
-  const width = 242, height = 36;
+  const minHeight = 32;
+  const widthForHeight = height => 18 + 8 * height;
+  let height = minHeight, width = widthForHeight(height);
   const picture = state.window.getBounds();
-  const area = screen.getDisplayMatching(picture).workArea;
   const clamp = (value, min, max) => Math.max(min, Math.min(value, max));
+  const initialPosition = (bounds) => {
+    const area = screen.getDisplayMatching(bounds).workArea;
+    const below = bounds.y + bounds.height + 3;
+    return {
+      x: clamp(Math.round(bounds.x + (bounds.width - width) / 2), area.x, area.x + area.width - width),
+      y: clamp(below + height <= area.y + area.height
+        ? below : bounds.y - height - 3, area.y, area.y + area.height - height)
+    };
+  };
   const panel = new BrowserWindow({
-    x: clamp(Math.round(picture.x + (picture.width - width) / 2), area.x, area.x + area.width - width),
-    y: clamp(picture.y + picture.height + 3 + height <= area.y + area.height
-      ? picture.y + picture.height + 3 : picture.y - height - 3, area.y, area.y + area.height - height),
-    width, height, minWidth: width, minHeight: height, maxWidth: width, maxHeight: height,
+    ...initialPosition(picture),
+    width, height, minHeight,
     frame: false, resizable: false, maximizable: false, fullscreenable: false,
     useContentSize: true, thickFrame: false, hasShadow: false, roundedCorners: false,
     parent: state.window, alwaysOnTop: state.window.isAlwaysOnTop(), skipTaskbar: true,
@@ -383,30 +391,43 @@ function openActionPanel(state) {
   setTaskbarGroup(panel, 'screenshot');
   panel.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   panel.webContents.on('will-navigate', event => event.preventDefault());
-  // Keep the client area stable when Windows adjusts bounds during movement/DPI changes.
+  // The native window may have a higher minimum on this display.
   let restoringSize = false;
+  let scaleFactor;
   const restoreSize = () => {
     if (restoringSize || panel.isDestroyed()) return;
     const content = panel.getContentBounds();
-    if (content.width === width && content.height === height) return;
+    const scale = screen.getDisplayMatching(content).scaleFactor;
+    if (Math.abs(content.width - width) <= 1 && Math.abs(content.height - height) <= 1 && scale === scaleFactor) return;
     restoringSize = true;
-    try { panel.setContentSize(width, height); }
-    finally { restoringSize = false; }
+    try {
+      scaleFactor = scale;
+      panel.setContentSize(widthForHeight(minHeight), minHeight);
+      height = panel.getContentBounds().height;
+      width = widthForHeight(height);
+      if (width !== widthForHeight(minHeight)) panel.setContentSize(width, height);
+    } finally {
+      restoringSize = false;
+    }
   };
   panel.on('resize', restoreSize);
-  panel.on('move', restoreSize);
+  panel.on('move', () => {
+    if (!panel.isDestroyed() && screen.getDisplayMatching(panel.getContentBounds()).scaleFactor !== scaleFactor)
+      restoreSize();
+  });
   let previous = picture;
   const follow = () => {
     if (panel.isDestroyed()) return;
     const next = state.window.getBounds();
+    const dx = next.x - previous.x;
+    const dy = next.y - previous.y;
+    previous = next;
+    if (!dx && !dy) return;
     const current = panel.getBounds();
     const display = screen.getDisplayMatching(next).workArea;
-    panel.setContentBounds({
-      x: clamp(current.x + next.x - previous.x, display.x, display.x + display.width - width),
-      y: clamp(current.y + next.y - previous.y, display.y, display.y + display.height - height),
-      width, height
-    });
-    previous = next;
+    const x = clamp(current.x + dx, display.x, display.x + display.width - width);
+    const y = clamp(current.y + dy, display.y, display.y + display.height - height);
+    if (x !== current.x || y !== current.y) panel.setPosition(x, y);
   };
   state.window.on('move', follow);
   const close = () => { if (!panel.isDestroyed()) panel.close(); };
@@ -417,9 +438,24 @@ function openActionPanel(state) {
     state.window.removeListener('move', follow);
     state.window.removeListener('closed', close);
   });
-  panel.once('ready-to-show', () => { restoreSize(); panel.showInactive(); });
+  panel.once('ready-to-show', () => {
+    restoreSize();
+    const { x, y } = initialPosition(state.window.getBounds());
+    panel.setPosition(x, y);
+    panel.showInactive();
+  });
   panel.loadFile(path.join(__dirname, '../picture-toolbox.html')).catch(close);
 }
+ipcMain.handle('shot:move-actions', (event, offset) => {
+  const panel = actionPanels.get(event.sender.id)?.actionPanel;
+  if (!panel || panel.isDestroyed() || panel.webContents !== event.sender) return;
+  if (!Number.isFinite(offset?.x) || !Number.isFinite(offset?.y)) return;
+  const cursor = screen.getCursorScreenPoint();
+  const x = Math.round(cursor.x - offset.x);
+  const y = Math.round(cursor.y - offset.y);
+  const bounds = panel.getBounds();
+  if (x !== bounds.x || y !== bounds.y) panel.setPosition(x, y);
+});
 ipcMain.handle('shot:actions-state', event => {
   const state = actionPanels.get(event.sender.id);
   if (!state) throw new Error('未知工具箱');
@@ -429,6 +465,7 @@ ipcMain.handle('shot:action', (event, action) => {
   const state = sessions.get(event.sender.id) || actionPanels.get(event.sender.id);
   if (!state || state.selection || state.closing) throw new Error('未知贴图');
   switch (action) {
+    case 'ocr': return startOcr(state);
     case 'copy': return copyImage(state);
     case 'cut': return copyImage(state, true);
     case 'save': return saveImage(state);
@@ -444,25 +481,27 @@ function popup(state) {
   if (state.openMenu || window.isDestroyed()) return;
   const icon = name => path.join(__dirname, 'menu-icons', nativeTheme?.shouldUseDarkColors ? 'dark' : 'light', `${name}.png`);
   const menu = Menu.buildFromTemplate([
-    {
-      label: '窗口置顶',
-      type: 'checkbox',
-      checked: window.isAlwaysOnTop(),
-      click: (item) => {
-        setPinned(state, item.checked);
-      }
-    },
-    { label: state.editing ? '退出编辑' : '编辑图片', enabled: !state.ocrBusy, click: () => {
+    ...(state.ocrResult ? [{ label: '复制选中文字', role: 'copy', icon: icon('copy') }] : []),
+    { label: '复制图片', icon: icon('copy'), accelerator: state.ocrResult ? undefined : 'CommandOrControl+C', registerAccelerator: false, click: () => copyImage(state) },
+    { label: '剪切', icon: icon('cut'), click: () => copyImage(state, true) },
+    { type: 'separator' },
+    { label: state.editing ? '退出编辑' : '编辑图片', icon: icon('edit'), enabled: !state.ocrBusy, click: () => {
       clearOcr(state);
       setEditing(state, !state.editing);
     } },
-    { label: state.ocrBusy ? '正在识别文字…' : '提取文字(OCR)', enabled: !state.ocrBusy, click: () => startOcr(state) },
+    { label: state.ocrBusy ? '正在识别文字…' : '提取文字(OCR)', icon: icon('ocr'), enabled: !state.ocrBusy, click: () => startOcr(state) },
     { type: 'separator' },
-    ...(state.ocrResult ? [{ label: '复制选中文字', role: 'copy', icon: icon('copy') }] : []),
-    { label: '显示工具箱', click: () => openActionPanel(state) },
-    { label: '剪切', click: () => copyImage(state, true) },
-    { label: '复制图片', icon: icon('copy'), accelerator: state.ocrResult ? undefined : 'CommandOrControl+C', registerAccelerator: false, click: () => copyImage(state) },
-    { type: 'separator' },
+    {
+      label: '显示工具箱',
+      type: 'checkbox',
+      checked: Boolean(state.actionPanel && !state.actionPanel.isDestroyed()),
+      click: (item) => item.checked ? openActionPanel(state) : state.actionPanel?.close()
+    },
+    {
+      label: '窗口置顶',
+      icon: icon(window.isAlwaysOnTop() ? 'pin-fixed' : 'pin'),
+      click: () => setPinned(state, !window.isAlwaysOnTop())
+    },
     { label: '透明度…', click: () => openOpacity(state) },
     {
       label: '显示边框',

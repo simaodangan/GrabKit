@@ -1,16 +1,22 @@
 * { box-sizing: border-box; }
 html { margin: 0; overflow: hidden; }
-body { display: flex; align-items: center; margin: 0; padding: 2px; width: 242px; height: 36px; overflow: hidden; box-shadow: inset 0 0 0 1px #8885; background: var(--bg, #f7f8fc); color: var(--text, #333); font: 14px 'Microsoft YaHei', sans-serif; }
-.handle { display: grid; place-items: center; width: 14px; height: 32px; color: #888; -webkit-app-region: drag; user-select: none; }
-main { display: flex; gap: 0; }
-button { position: relative; display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 4px; color: inherit; background: transparent; cursor: pointer; -webkit-app-region: no-drag; }
+body { display: flex; align-items: center; margin: 0; padding: 0 2px; width: 100vw; height: 100vh; overflow: hidden; transform: translateZ(0); box-shadow: inset 0 0 0 1px #8885; background: var(--bg, #f7f8fc); color: var(--text, #333); font: 14px 'Microsoft YaHei', sans-serif; }
+.handle { display: grid; place-items: center; flex: 0 0 14px; height: 100%; color: #888; cursor: move; touch-action: none; user-select: none; }
+main { display: flex; flex: 1; min-width: 0; height: 100%; }
+button { position: relative; display: grid; place-items: center; flex: 1; min-width: 0; height: 100%; padding: 0; border: 0; border-radius: 4px; color: inherit; background: transparent; cursor: pointer; -webkit-app-region: no-drag; }
 button:hover, button:focus-visible { background: #7764d81a; outline: 2px solid #7764d860; outline-offset: -2px; }
 button[aria-pressed="true"] { background: #7764d82e; color: #7764d8; }
 button[data-action="close"]:hover { color: #d32f2f; background: #d32f2f15; }
-button[data-action="hide"] { border-radius: 0 4px 4px 0; }
-button[data-action="hide"]::before { content: ''; position: absolute; left: 0; top: 6px; bottom: 6px; width: 1px; background: #8883; }
-svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+button.group-start { border-top-left-radius: 0; border-bottom-left-radius: 0; }
+button.group-start::before { content: ''; position: absolute; left: 0; top: 6px; bottom: 6px; width: 1px; background: #8883; }
 .handle svg { width: 10px; height: 20px; fill: currentColor; stroke: none; }
-.pin-fixed { display: none; }
-button[aria-pressed="true"] .pin-fixed { display: block; }
-button[aria-pressed="true"] .pin-free { display: none; }
+button::after { content: ""; width: 75vh; aspect-ratio: 1; background: currentColor; mask: var(--icon) center / contain no-repeat; }
+button[data-action="copy"] { --icon: url("./backend/menu-icons/light/copy@2x.png"); }
+button[data-action="cut"] { --icon: url("./backend/menu-icons/light/cut@2x.png"); }
+button[data-action="edit"] { --icon: url("./backend/menu-icons/light/edit@2x.png"); }
+button[data-action="ocr"] { --icon: url("./backend/menu-icons/light/ocr@2x.png"); }
+button[data-action="save"] { --icon: url("./backend/menu-icons/light/save@2x.png"); }
+button[data-action="pin"] { --icon: url("./backend/menu-icons/light/pin@2x.png"); }
+button[data-action="close"] { --icon: url("./backend/menu-icons/light/close@2x.png"); }
+button[data-action="hide"] { --icon: url("./backend/menu-icons/light/hide@2x.png"); }
+button[data-action="pin"][aria-pressed="true"] { --icon: url("./backend/menu-icons/light/pin-fixed@2x.png"); }
